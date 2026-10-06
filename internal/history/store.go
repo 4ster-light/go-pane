@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -62,7 +63,8 @@ func (s *Store) loadLengths() {
 		return
 	}
 	var lf learnedFile
-	if json.Unmarshal(b, &lf) != nil {
+	if err := json.Unmarshal(b, &lf); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: ignoring malformed %s: %v\n", s.lengthsPath(), err)
 		return
 	}
 	for k, secs := range lf.Durations {
@@ -120,7 +122,7 @@ func (s *Store) Record(now time.Time, u opencode.Usage) error {
 	}
 	learnedChanged := false
 	for _, k := range metrics.Order {
-		w := windowFor(k, u)
+		w := metrics.WindowFor(k, u)
 		smp.Percents[string(k)] = w.Percent
 		smp.ResetsAt[string(k)] = w.ResetsAt.UTC()
 
@@ -254,27 +256,16 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 }
 
 // plausibleWindow guards against learning a bogus length when the daemon was
-// offline across several resets.
+// offline across one or more resets. The rolling bound is deliberately tight:
+// a missed 5h reset would otherwise teach a 10h window.
 func plausibleWindow(k metrics.Kind, d time.Duration) bool {
 	switch k {
 	case metrics.Rolling:
-		return d >= 1*time.Hour && d <= 12*time.Hour
+		return d >= 4*time.Hour && d <= 6*time.Hour
 	case metrics.Weekly:
 		return d >= 6*24*time.Hour && d <= 8*24*time.Hour
 	case metrics.Monthly:
 		return d >= 25*24*time.Hour && d <= 35*24*time.Hour
 	}
 	return false
-}
-
-func windowFor(k metrics.Kind, u opencode.Usage) opencode.Window {
-	switch k {
-	case metrics.Rolling:
-		return u.Rolling
-	case metrics.Weekly:
-		return u.Weekly
-	case metrics.Monthly:
-		return u.Monthly
-	}
-	return opencode.Window{}
 }
