@@ -7,7 +7,7 @@ import "format.js" as Fmt
 Item {
     id: compact
 
-    property var data: ({})
+    property var usage: ({})
     property string lastError: ""
     property int warn: 70
     property int critical: 90
@@ -23,20 +23,20 @@ Item {
     implicitHeight: layout.implicitHeight + Kirigami.Units.smallSpacing * 2
 
     function order() {
-        return (data && data.order) ? data.order : ["rolling", "weekly", "monthly"];
+        return (usage && usage.order) ? usage.order : ["rolling", "weekly", "monthly"];
     }
 
     function headline() {
-        if (!data || !data.windows) {
+        if (!usage || !usage.windows) {
             return null;
         }
-        if (compactMode === "monthly" && data.windows.monthly) {
-            return data.windows.monthly;
+        if (compactMode === "monthly" && usage.windows.monthly) {
+            return usage.windows.monthly;
         }
-        if (compactMode === "rolling" && data.windows.rolling) {
-            return data.windows.rolling;
+        if (compactMode === "rolling" && usage.windows.rolling) {
+            return usage.windows.rolling;
         }
-        return data.windows[data.headline] || data.windows.monthly || data.windows.weekly || data.windows.rolling || null;
+        return usage.windows[usage.headline] || usage.windows.monthly || usage.windows.weekly || usage.windows.rolling || null;
     }
 
     function barColor(m) {
@@ -79,7 +79,7 @@ Item {
 
                 delegate: Rectangle {
                     required property string modelData
-                    readonly property var metric: (compact.data && compact.data.windows) ? compact.data.windows[modelData] : null
+                    readonly property var metric: (compact.usage && compact.usage.windows) ? compact.usage.windows[modelData] : null
 
                     width: Math.max(2, Kirigami.Units.smallSpacing)
                     height: Kirigami.Units.gridUnit

@@ -6,7 +6,7 @@ import org.kde.plasma.components as PlasmaComponents3
 Item {
     id: full
 
-    property var data: ({})
+    property var usage: ({})
     property string lastError: ""
     property double lastUpdated: 0
     property int warn: 70
@@ -23,7 +23,7 @@ Item {
     Layout.minimumHeight: column.implicitHeight + Kirigami.Units.largeSpacing * 2
 
     function order() {
-        var all = (data && data.order) ? data.order : ["rolling", "weekly", "monthly"];
+        var all = (usage && usage.order) ? usage.order : ["rolling", "weekly", "monthly"];
         return all.filter(function (k) {
             if (k === "rolling") {
                 return full.showRolling;
@@ -74,7 +74,7 @@ Item {
             delegate: UsageRow {
                 required property string modelData
                 Layout.fillWidth: true
-                metric: (full.data && full.data.windows) ? full.data.windows[modelData] : null
+                metric: (full.usage && full.usage.windows) ? full.usage.windows[modelData] : null
                 warn: full.warn
                 critical: full.critical
             }
@@ -87,8 +87,8 @@ Item {
             font: Kirigami.Theme.smallFont
             color: Kirigami.Theme.negativeTextColor
             text: {
-                if (full.data && full.data.stale && full.data.error) {
-                    return i18n("Stale: %1", full.data.error);
+                if (full.usage && full.usage.stale && full.usage.error) {
+                    return i18n("Stale: %1", full.usage.error);
                 }
                 return full.lastError;
             }

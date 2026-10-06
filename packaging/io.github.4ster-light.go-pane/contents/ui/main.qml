@@ -9,7 +9,7 @@ PlasmoidItem {
     readonly property string daemonUrl: Plasmoid.configuration.daemonUrl
     readonly property int refreshMs: Math.max(5, Plasmoid.configuration.refreshSeconds) * 1000
 
-    property var data: ({})
+    property var usage: ({})
     property string lastError: ""
     property double lastUpdated: 0
 
@@ -23,7 +23,7 @@ PlasmoidItem {
             }
             if (xhr.status === 200) {
                 try {
-                    root.data = JSON.parse(xhr.responseText);
+                    root.usage = JSON.parse(xhr.responseText);
                     root.lastError = "";
                     root.lastUpdated = Date.now();
                 } catch (e) {
@@ -49,9 +49,9 @@ PlasmoidItem {
     toolTipMainText: i18n("OpenCode Go Usage")
     toolTipSubText: {
         var lines = [];
-        var order = (root.data && root.data.order) ? root.data.order : ["rolling", "weekly", "monthly"];
+        var order = (root.usage && root.usage.order) ? root.usage.order : ["rolling", "weekly", "monthly"];
         for (var i = 0; i < order.length; i++) {
-            var m = root.data.windows ? root.data.windows[order[i]] : null;
+            var m = root.usage.windows ? root.usage.windows[order[i]] : null;
             if (!m) {
                 continue;
             }
@@ -65,7 +65,7 @@ PlasmoidItem {
     }
 
     compactRepresentation: CompactRepresentation {
-        data: root.data
+        usage: root.usage
         lastError: root.lastError
         warn: Plasmoid.configuration.warnPercent
         critical: Plasmoid.configuration.criticalPercent
@@ -73,7 +73,7 @@ PlasmoidItem {
     }
 
     fullRepresentation: FullRepresentation {
-        data: root.data
+        usage: root.usage
         lastError: root.lastError
         lastUpdated: root.lastUpdated
         warn: Plasmoid.configuration.warnPercent
