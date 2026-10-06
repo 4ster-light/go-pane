@@ -1,8 +1,8 @@
 # Contributing to go-pane
 
-Thanks for your interest! go-pane is primarily built for one person's KDE
-Plasma 6 desktop, but code quality is a core goal and contributions of any kind
-are welcome — bug reports, feature requests, documentation, and code.
+Thanks for your interest! go-pane is primarily built for one person's KDE Plasma
+6 desktop, but code quality is a core goal and contributions of any kind are
+welcome: bug reports, feature requests, documentation, and code.
 
 By participating you agree to abide by our
 [Code of Conduct](CODE_OF_CONDUCT.md).
@@ -17,13 +17,13 @@ By participating you agree to abide by our
 
 ## Toolchain
 
-| Tool             | Version            | Purpose                                 |
-| ---------------- | ------------------ | --------------------------------------- |
-| Go               | 1.23+ (see go.mod) | build the daemon and CLI                |
-| golangci-lint    | v2.14.0            | linting (`make lint`)                   |
-| KDE Plasma       | 6.x                | run the applet                          |
-| `kpackagetool6`  | Plasma 6           | install/upgrade the plasmoid            |
-| `plasmawindowed` | Plasma 6           | run the applet standalone (`make dev`)  |
+| Tool             | Version            | Purpose                                |
+| ---------------- | ------------------ | -------------------------------------- |
+| Go               | 1.23+ (see go.mod) | build the daemon and CLI               |
+| golangci-lint    | v2.14.0            | linting (`make lint`)                  |
+| KDE Plasma       | 6.x                | run the applet                         |
+| `kpackagetool6`  | Plasma 6           | install/upgrade the plasmoid           |
+| `plasmawindowed` | Plasma 6           | run the applet standalone (`make dev`) |
 
 Optional:
 
@@ -90,7 +90,7 @@ packaging/            systemd unit and the Plasma applet package
   default property that holds visual children; shadowing it makes the applet
   occupy space but render nothing. Use `usage`/`snapshot` instead.
 - Use `Kirigami.Units` for spacing and `Kirigami.Theme` for colours.
-- Keep representations thin — all logic belongs in the Go daemon.
+- Keep representations thin, all logic belongs in the Go daemon.
 - Give compact representations `implicitWidth`/`implicitHeight` and matching
   `Layout.preferred*` bounds so the panel can size them.
 - Validate with `qmllint` when available.
@@ -155,9 +155,8 @@ ci: run tests with the race detector
 Include your distribution, Plasma version, `go-pane version`, the output of
 `go-pane doctor` (redact the key), and steps to reproduce.
 
-For security issues, please use GitHub's private security advisories rather
-than a public issue:
-<https://github.com/4ster-light/go-pane/security/advisories/new>
+For security issues, please use GitHub's private security advisories rather than
+a public issue: <https://github.com/4ster-light/go-pane/security/advisories/new>
 
 ## License
 

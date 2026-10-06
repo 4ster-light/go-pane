@@ -3,11 +3,11 @@
 ## Our Pledge
 
 We are committed to providing a welcoming and inspiring community for all. We
-pledge that everyone participating in the go-pane project and its community
-will be treated with respect and dignity, regardless of age, body size,
-disability, ethnicity, gender identity and expression, level of experience,
-nationality, personal appearance, political belief, profession, race, religion,
-sexual identity and orientation, socioeconomic status, or any other dimension of
+pledge that everyone participating in the go-pane project and its community will
+be treated with respect and dignity, regardless of age, body size, disability,
+ethnicity, gender identity and expression, level of experience, nationality,
+personal appearance, political belief, profession, race, religion, sexual
+identity and orientation, socioeconomic status, or any other dimension of
 diversity.
 
 ## Our Standards
