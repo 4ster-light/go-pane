@@ -1,66 +1,40 @@
-BINARY      := go-pane
-PREFIX      ?= $(HOME)/.local
-BINDIR      := $(PREFIX)/bin
-UNITDIR     := $(HOME)/.config/systemd/user
-PLASMOID_ID := io.github.4ster-light.go-pane
-PLASMOID_DIR:= packaging/$(PLASMOID_ID)
+PLASMOID_ID  := io.github.4ster-light.go-pane
+PACKAGE_DIR  := packaging/$(PLASMOID_ID)
+DIST_DIR     := dist
+VERSION      := $(shell sed -n 's/.*"Version": "\([^"]*\)".*/\1/p' $(PACKAGE_DIR)/metadata.json | head -1)
 
-VERSION := $(shell sed -n 's/.*"Version": "\([^"]*\)".*/\1/p' $(PLASMOID_DIR)/metadata.json | head -1)
-COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
-DATE    := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS := -X github.com/4ster-light/go-pane/internal/version.Version=$(VERSION) \
-           -X github.com/4ster-light/go-pane/internal/version.Commit=$(COMMIT) \
-           -X github.com/4ster-light/go-pane/internal/version.Date=$(DATE)
+.PHONY: check test validate package plasmoid-install plasmoid-upgrade install uninstall dev
 
-.PHONY: build test vet fmt fmt-check lint check run plasmoid-install plasmoid-upgrade install uninstall dev clean
+# Static checks that do not need a desktop session.
+check: validate
 
-GOLANGCI_LINT ?= golangci-lint
+test: validate
 
-build:
-	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/go-pane
+validate:
+	python3 scripts/validate_package.py
 
-test:
-	go test ./...
-
-vet:
-	go vet ./...
-
-fmt:
-	gofmt -w .
-
-fmt-check:
-	@test -z "$$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
-
-lint:
-	$(GOLANGCI_LINT) run ./...
-
-check: fmt-check vet test lint
-
-run:
-	go run ./cmd/go-pane serve
+# Build a distributable .plasmoid archive.
+package: validate
+	@mkdir -p $(DIST_DIR)
+	@rm -f $(DIST_DIR)/go-pane-$(VERSION).plasmoid
+	cd $(PACKAGE_DIR) && zip -rq $(CURDIR)/$(DIST_DIR)/go-pane-$(VERSION).plasmoid metadata.json contents
+	@echo "Built $(DIST_DIR)/go-pane-$(VERSION).plasmoid"
 
 plasmoid-install:
-	kpackagetool6 -t Plasma/Applet -i $(PLASMOID_DIR)
+	kpackagetool6 -t Plasma/Applet -i $(PACKAGE_DIR)
 
 plasmoid-upgrade:
-	kpackagetool6 -t Plasma/Applet -u $(PLASMOID_DIR)
+	kpackagetool6 -t Plasma/Applet -u $(PACKAGE_DIR)
 
-install: build
-	install -Dm755 bin/$(BINARY) $(BINDIR)/$(BINARY)
-	install -Dm644 packaging/go-pane.service $(UNITDIR)/go-pane.service
-	@kpackagetool6 -t Plasma/Applet -i $(PLASMOID_DIR) 2>/dev/null \
-		|| kpackagetool6 -t Plasma/Applet -u $(PLASMOID_DIR)
+install: validate
+	@kpackagetool6 -t Plasma/Applet -i $(PACKAGE_DIR) 2>/dev/null \
+		|| kpackagetool6 -t Plasma/Applet -u $(PACKAGE_DIR)
 	@echo
-	@echo "Installed. Enable the daemon with:"
-	@echo "  systemctl --user daemon-reload && systemctl --user enable --now go-pane.service"
+	@echo "Installed. Add the 'OpenCode Go Usage' widget and set your API key"
+	@echo "from the widget's settings (gear icon in the popup)."
 
 uninstall:
-	-systemctl --user disable --now go-pane.service 2>/dev/null
-	rm -f $(BINDIR)/$(BINARY) $(UNITDIR)/go-pane.service
 	-kpackagetool6 -t Plasma/Applet -r $(PLASMOID_ID) 2>/dev/null
 
 dev: plasmoid-upgrade
 	plasmawindowed $(PLASMOID_ID)
-
-clean:
-	rm -rf bin

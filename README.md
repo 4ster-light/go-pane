@@ -2,10 +2,8 @@
 
 [![CI](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml/badge.svg)](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/4ster-light/go-pane)](https://github.com/4ster-light/go-pane/releases/latest)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/4ster-light/go-pane)](go.mod)
 [![License: MIT](https://img.shields.io/github/license/4ster-light/go-pane)](LICENSE)
 [![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-blue)](https://kde.org/plasma-desktop/)
-[![GitHub last commit](https://img.shields.io/github/last-commit/4ster-light/go-pane)](https://github.com/4ster-light/go-pane/commits/main)
 
 > [!NOTE]
 > This project is primarily for personal use, hence the specific target
@@ -16,13 +14,12 @@
 A native KDE Plasma 6 widget that shows live **OpenCode Go** subscription usage
 (rolling / weekly / monthly) with reset countdowns and derived pacing metrics.
 
-The logic lives in a small Go daemon (`go-pane`); the applet is a thin QML
-plasmoid that renders what the daemon serves over loopback HTTP.
+As of **v0.2.0** the whole thing is a single, self-contained QML plasmoid. There
+is no daemon, no helper process and no Go toolchain: the applet calls the
+OpenCode Go usage API directly and derives every metric in JavaScript.
 
 ```
-OpenCode Go API ──> go-pane daemon (HTTP) ──> Plasma applet (QML)
-
-   /zen/go/v1/usage     (Go)         127.0.0.1:17873
+OpenCode Go API ──> Plasma applet (single main.qml + KConfig)
 ```
 
 ## Features
@@ -31,129 +28,102 @@ OpenCode Go API ──> go-pane daemon (HTTP) ──> Plasma applet (QML)
 - **Available % left** and **reset countdown** (`19d 5h`, `4h 59m`, …).
 - Derived metrics: pace ratio, projected usage at reset, exhaustion ETA and a
   safe `%/h` budget.
-- Compact panel representation + detailed popup, configurable thresholds.
-- Learns the real window lengths from history (rolling ≈ 5h, weekly 7d, monthly
-  is a signup anniversary).
-- Keeps the API key out of QML/KConfig; only the daemon sees it.
+- Compact panel representation (three bars + most-constrained headline) and a
+  detailed popup.
+- Configurable API key, base URL, refresh interval, warning/critical
+  thresholds, visible windows and panel headline, all from the widget's popup.
+- Stale/error states and a one-click refresh.
 
 ## Requirements
 
-- KDE Plasma 6 (`plasma5support`, `kpackagetool6`)
-- Go 1.23+ (to build)
+- KDE Plasma 6 (`kpackagetool6`)
 - An OpenCode **API key** (`oc_sk_…`). The OAuth token used by the opencode CLI
   is _not_ accepted by the usage endpoint.
 
+Go is **not** required anymore.
+
 ## Install
 
-The project has two parts: a Go daemon/CLI and a Plasma applet. You can install
-both with the Makefile, or each one on its own.
+Download `go-pane-0.2.0.plasmoid` from the
+[latest release](https://github.com/4ster-light/go-pane/releases/latest) and
+install it:
 
-### Everything with the Makefile
+```sh
+kpackagetool6 -t Plasma/Applet -i go-pane-0.2.0.plasmoid
+```
+
+Or build it from a git clone:
 
 ```sh
 git clone https://github.com/4ster-light/go-pane.git
 cd go-pane
 make install
-systemctl --user daemon-reload
-systemctl --user enable --now go-pane.service
 ```
 
-`make install` puts the binary in `~/.local/bin`, the unit in
-`~/.config/systemd/user`, and installs the applet.
-
-### Daemon and CLI only
-
-With the Go toolchain, no clone needed:
-
-```sh
-go install github.com/4ster-light/go-pane/cmd/go-pane@latest
-```
-
-This puts `go-pane` in `$(go env GOPATH)/bin` (usually `~/go/bin`), so make sure
-that directory is on your `PATH`.
-
-### Plasma applet only
-
-From a git clone or an unpacked release tarball:
-
-```sh
-kpackagetool6 -t Plasma/Applet -i packaging/io.github.4ster-light.go-pane
-```
+`make package` builds the `.plasmoid` archive from the sources if you prefer to
+install that way.
 
 Then right-click the panel, choose **Add Widgets…**, and add **OpenCode Go
-Usage**.
+Usage**. The settings open automatically the first time; paste your API key and
+the widget starts polling.
 
-## API key discovery
-
-`go-pane` looks for the key in this order (first match wins):
-
-1. `--api-key-file PATH`
-2. `OPENCODE_API_KEY` or `OPENCODE_GO_API_KEY`
-3. `~/.config/go-pane/config.json` → `apiKey` / `apiKeyFile`
-4. `~/.config/go-pane/api_key` (use `chmod 600`)
-5. `~/.pi/agent/auth.json` → `opencode-go.key`
-
-Check everything with:
+To upgrade an existing install:
 
 ```sh
-go-pane doctor
+make plasmoid-upgrade
 ```
-
-## CLI
-
-```sh
-go-pane serve   [--addr 127.0.0.1:17873] [--interval 60s] [--base-url URL] [--api-key-file PATH]
-go-pane once    [--json]        # one-shot, text or JSON
-go-pane json                    # one-shot JSON (daemon not required)
-go-pane doctor                  # verify key + connectivity
-go-pane version
-```
-
-`once --json` can be wired to the `plasma5support` "executable" data engine if
-you prefer not to run the daemon.
-
-## HTTP API (loopback only)
-
-- `GET /healthz`
-- `GET /v1/usage` — the full computed snapshot
-- `GET /v1/history?limit=288` — raw samples for charts (oldest first)
 
 ## Configuration
 
-Edit via the widget's settings, or `~/.config/go-pane/config.json`:
+Open the widget's popup and click the gear (⚙). Settings are saved in the
+widget's Plasma configuration (a `0600` file):
 
-```json
-{
-  "addr": "127.0.0.1:17873",
-  "interval": "60s",
-  "baseURL": "https://opencode.ai/zen/go/v1",
-  "apiKeyFile": "~/.config/go-pane/api_key"
-}
-```
+| Setting         | Default                          | Description                                     |
+| --------------- | -------------------------------- | ----------------------------------------------- |
+| API key         | *(empty)*                        | `oc_sk_…` bearer key for the usage endpoint.    |
+| API base URL    | `https://opencode.ai/zen/go/v1`  | Change if the endpoint moves.                   |
+| Refresh (s)     | `60`                             | Poll interval, 5–3600 seconds.                  |
+| Warn / critical | `70` / `90`                      | Used-% thresholds for amber / red.              |
+| Show            | rolling, weekly, monthly         | Which rows appear in the popup.                 |
+| Panel headline  | most constrained                 | Which window the panel emphasises.              |
 
-`apiKey` is also accepted, but storing a secret in `config.json` is discouraged;
-prefer `apiKeyFile` or an environment variable.
+## API key discovery
+
+The key is stored in the widget's own Plasma configuration. There is no
+environment variable or key-file lookup in the QML-only design; if you prefer to
+keep the key out of KConfig, use v0.1.0 (the Go daemon) instead.
 
 ## Notes
 
 - The usage endpoint (`GET /zen/go/v1/usage`) is undocumented and may change;
   the base URL is configurable.
-- Window lengths are inferred. The daemon refines them from reset timestamps
-  stored in `~/.local/state/go-pane/`.
+- Window lengths are inferred and fixed: rolling ≈ 5h, weekly 7d (Monday 00:00
+  UTC) and monthly 30d (a signup anniversary). Pacing for the monthly window is
+  therefore an estimate. The old daemon learned exact lengths from history.
+- The API sends `access-control-allow-origin: *`, which is what allows the QML
+  `XMLHttpRequest` to call it directly.
+
+## Security
+
+The API key is a bearer credential and is written to the widget's KConfig in
+your Plasma configuration directory. That file is created `0600`, but it is not
+encrypted. Rotate the key in the OpenCode console if it leaks.
 
 ## Development
 
 ```sh
-make build      # build bin/go-pane
-make test       # go test ./...
-make check      # gofmt check + go vet + tests + golangci-lint
-make lint       # golangci-lint run ./...
-make dev        # upgrade the plasmoid and open it with plasmawindowed
+make dev        # upgrade the applet and open it with plasmawindowed
+make check      # static package validation (metadata, KConfigXT, QML refs)
+make package    # build dist/go-pane-<version>.plasmoid
 ```
 
-CI (`.github/workflows/ci.yml`) runs formatting, `go vet`, race tests with
-coverage, and golangci-lint on every push and pull request, and enforces an
-80% coverage floor.
+There is no prebuilt binary or test suite: the widget *is* the single
+`contents/ui/main.qml`. Optional dev packages for validation: `qmllint` (from
+`qt6-qtdeclarative-devel` on Fedora).
+
+CI runs `scripts/validate_package.py`, which checks the package layout, the
+`metadata.json`, the KConfigXT schema and that every configuration key used in
+the QML is declared.
 
 ## License
 

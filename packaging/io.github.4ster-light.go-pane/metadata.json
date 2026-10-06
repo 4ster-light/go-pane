@@ -3,7 +3,7 @@
   "KPlugin": {
     "Id": "io.github.4ster-light.go-pane",
     "Name": "OpenCode Go Usage",
-    "Description": "Live OpenCode Go rolling, weekly and monthly usage with reset countdowns and pacing",
+    "Description": "OpenCode Go rolling, weekly and monthly usage with reset countdowns and pacing, fetched directly from the API",
     "Icon": "office-chart-line",
     "Category": "System Information",
     "Version": "0.1.0",

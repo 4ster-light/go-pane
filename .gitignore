@@ -1,1 +1,6 @@
-/bin/
+# Built applet archives
+*.plasmoid
+dist/
+
+# Python bytecode from scripts/
+__pycache__/
