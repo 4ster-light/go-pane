@@ -40,6 +40,12 @@ jobs:
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -1
 
+      - name: Enforce coverage floor
+        run: |
+          total=$(go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/,"",$3); print $3}')
+          echo "Total coverage: ${total}%"
+          awk -v total="$total" 'BEGIN { if (total + 0 < 80) { print "coverage " total "% is below the 80% floor"; exit 1 } }'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

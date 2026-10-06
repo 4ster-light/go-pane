@@ -152,7 +152,8 @@ make dev        # upgrade the plasmoid and open it with plasmawindowed
 ```
 
 CI (`.github/workflows/ci.yml`) runs formatting, `go vet`, race tests with
-coverage, and golangci-lint on every push and pull request.
+coverage, and golangci-lint on every push and pull request, and enforces an
+80% coverage floor.
 
 ## License
 
