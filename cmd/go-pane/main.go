@@ -132,7 +132,7 @@ func runOnce(asJSON bool, args []string) int {
 	now := time.Now().UTC()
 	lengths := metrics.DefaultLengths()
 	if store, err := history.Open(cfg.StateDir); err == nil {
-		store.Record(now, usage)
+		_ = store.Record(now, usage)
 		lengths = store.Lengths()
 	}
 	snap := metrics.Compute(now, usage, lengths)
@@ -189,7 +189,7 @@ func runDoctor(args []string) int {
 
 func fetchWithRetry(ctx context.Context, c *opencode.Client, attempts int) (opencode.Usage, error) {
 	var lastErr error
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		u, err := c.FetchUsage(ctx)
 		if err == nil {
 			return u, nil
@@ -208,9 +208,9 @@ func fetchWithRetry(ctx context.Context, c *opencode.Client, attempts int) (open
 }
 
 func printText(w io.Writer, s metrics.Snapshot) {
-	fmt.Fprintf(w, "OpenCode Go usage — fetched %s\n", s.FetchedAt.Local().Format(time.RFC3339))
+	writef(w, "OpenCode Go usage — fetched %s\n", s.FetchedAt.Local().Format(time.RFC3339))
 	if s.Stale && s.Error != "" {
-		fmt.Fprintf(w, "  (stale: %s)\n", s.Error)
+		writef(w, "  (stale: %s)\n", s.Error)
 	}
 	for _, k := range s.Order {
 		m, ok := s.Windows[string(k)]
@@ -218,16 +218,22 @@ func printText(w io.Writer, s metrics.Snapshot) {
 			continue
 		}
 		reset := metrics.FormatDuration(time.Until(m.ResetsAt))
-		fmt.Fprintf(w, "  %-8s %6s left (%s used)  resets in %s",
+		writef(w, "  %-8s %6s left (%s used)  resets in %s",
 			m.Title, metrics.FormatPercent(m.AvailablePercent), metrics.FormatPercent(m.UsedPercent), reset)
 		if m.PaceRatio != nil {
-			fmt.Fprintf(w, "  pace %.2fx", *m.PaceRatio)
+			writef(w, "  pace %.2fx", *m.PaceRatio)
 		}
 		if m.ExhaustsAt != nil && m.ExhaustsAt.Before(m.ResetsAt) {
-			fmt.Fprintf(w, "  empty in %s", metrics.FormatDuration(time.Until(*m.ExhaustsAt)))
+			writef(w, "  empty in %s", metrics.FormatDuration(time.Until(*m.ExhaustsAt)))
 		}
-		fmt.Fprintln(w)
+		writef(w, "\n")
 	}
+}
+
+// writef writes to w and deliberately ignores the error: for CLI output a
+// failure to write is not actionable.
+func writef(w io.Writer, format string, args ...any) {
+	_, _ = fmt.Fprintf(w, format, args...)
 }
 
 func newLogger(level string) *slog.Logger {

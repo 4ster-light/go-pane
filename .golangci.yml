@@ -1,0 +1,26 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - staticcheck
+    - unconvert
+    - unused
+  exclusions:
+    rules:
+      # Test helpers close bodies via t.Cleanup, which bodyclose cannot see.
+      - path: _test\.go
+        linters:
+          - bodyclose
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
