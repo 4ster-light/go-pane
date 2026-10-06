@@ -1,5 +1,12 @@
 # go-pane
 
+[![CI](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml/badge.svg)](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/4ster-light/go-pane)](https://goreportcard.com/report/github.com/4ster-light/go-pane)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/4ster-light/go-pane)](go.mod)
+[![License: MIT](https://img.shields.io/github/license/4ster-light/go-pane)](LICENSE)
+[![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-blue)](https://kde.org/plasma-desktop/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/4ster-light/go-pane)](https://github.com/4ster-light/go-pane/commits/main)
+
 A native KDE Plasma 6 widget that shows live **OpenCode Go** subscription usage
 (rolling / weekly / monthly) with reset countdowns and derived pacing metrics.
 
@@ -7,7 +14,8 @@ The logic lives in a small Go daemon (`go-pane`); the applet is a thin QML
 plasmoid that renders what the daemon serves over loopback HTTP.
 
 ```
-OpenCode Go API ──> go-pane daemon ──HTTP──> Plasma applet (QML)
+OpenCode Go API ──> go-pane daemon (HTTP) ──> Plasma applet (QML)
+
    /zen/go/v1/usage     (Go)         127.0.0.1:17873
 ```
 
@@ -101,6 +109,19 @@ Edit via the widget's settings, or `~/.config/go-pane/config.json`:
   the base URL is configurable.
 - Window lengths are inferred. The daemon refines them from reset timestamps
   stored in `~/.local/state/go-pane/`.
+
+## Development
+
+```sh
+make build      # build bin/go-pane
+make test       # go test ./...
+make check      # gofmt check + go vet + tests + golangci-lint
+make lint       # golangci-lint run ./...
+make dev        # upgrade the plasmoid and open it with plasmawindowed
+```
+
+CI (`.github/workflows/ci.yml`) runs formatting, `go vet`, race tests with
+coverage, and golangci-lint on every push and pull request.
 
 ## License
 

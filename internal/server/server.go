@@ -20,6 +20,16 @@ type Provider interface {
 
 // New builds the HTTP server.
 func New(addr string, p Provider) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           Handler(p),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+}
+
+// Handler returns the loopback-only, CORS-enabled handler. It is exported so
+// it can be exercised in tests without binding a socket.
+func Handler(p Provider) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -40,11 +50,7 @@ func New(addr string, p Provider) *http.Server {
 			"samples": p.History(limit),
 		})
 	})
-	return &http.Server{
-		Addr:              addr,
-		Handler:           cors(loopbackOnly(mux)),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	return cors(loopbackOnly(mux))
 }
 
 func cors(next http.Handler) http.Handler {

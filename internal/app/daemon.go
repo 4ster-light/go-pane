@@ -15,27 +15,37 @@ import (
 
 // Daemon polls the API and serves the latest computed snapshot.
 type Daemon struct {
-	cfg    config.Config
-	client *opencode.Client
-	store  *history.Store
-	log    *slog.Logger
+	cfg     config.Config
+	fetcher Fetcher
+	store   *history.Store
+	log     *slog.Logger
 
 	mu   sync.RWMutex
 	snap metrics.Snapshot
 }
 
-// New builds a daemon.
+// Fetcher is the subset of the API client the daemon needs.
+type Fetcher interface {
+	FetchUsage(ctx context.Context) (opencode.Usage, error)
+}
+
+// New builds a daemon backed by a real API client.
 func New(cfg config.Config, store *history.Store, log *slog.Logger) *Daemon {
 	c := opencode.New(cfg.APIKey)
 	c.BaseURL = cfg.BaseURL
+	return newDaemon(cfg, store, log, c)
+}
+
+// newDaemon builds a daemon around an arbitrary fetcher (used in tests).
+func newDaemon(cfg config.Config, store *history.Store, log *slog.Logger, fetcher Fetcher) *Daemon {
 	if log == nil {
 		log = slog.Default()
 	}
 	return &Daemon{
-		cfg:    cfg,
-		client: c,
-		store:  store,
-		log:    log,
+		cfg:     cfg,
+		fetcher: fetcher,
+		store:   store,
+		log:     log,
 		snap: metrics.Snapshot{
 			Order:   metrics.Order,
 			Windows: map[string]metrics.WindowMetric{},
@@ -45,7 +55,7 @@ func New(cfg config.Config, store *history.Store, log *slog.Logger) *Daemon {
 
 // PollOnce fetches, records and returns a fresh snapshot.
 func (d *Daemon) PollOnce(ctx context.Context) (metrics.Snapshot, error) {
-	usage, err := d.client.FetchUsage(ctx)
+	usage, err := d.fetcher.FetchUsage(ctx)
 	if err != nil {
 		d.mu.Lock()
 		s := d.snap
@@ -56,7 +66,9 @@ func (d *Daemon) PollOnce(ctx context.Context) (metrics.Snapshot, error) {
 		return d.Snapshot(), err
 	}
 	now := time.Now().UTC()
-	d.store.Record(now, usage)
+	if err := d.store.Record(now, usage); err != nil {
+		d.log.Warn("record history sample", "error", err)
+	}
 	snap := metrics.Compute(now, usage, d.store.Lengths())
 	d.mu.Lock()
 	d.snap = snap

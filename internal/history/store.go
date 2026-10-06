@@ -4,6 +4,7 @@ package history
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,6 +13,10 @@ import (
 	"github.com/4ster-light/go-pane/internal/metrics"
 	"github.com/4ster-light/go-pane/internal/opencode"
 )
+
+// maxLineBytes bounds a single JSONL record so a corrupt file cannot exhaust
+// memory while scanning.
+const maxLineBytes = 1 << 20
 
 // Sample is one persisted poll.
 type Sample struct {
@@ -70,7 +75,7 @@ func (s *Store) loadLengths() {
 	}
 }
 
-func (s *Store) saveLengthsLocked() {
+func (s *Store) saveLengthsLocked() error {
 	out := learnedFile{Durations: map[string]int64{}}
 	for k, d := range s.lengths.Durations {
 		if s.lengths.Estimated[k] {
@@ -80,41 +85,31 @@ func (s *Store) saveLengthsLocked() {
 	}
 	b, err := json.Marshal(out)
 	if err != nil {
-		return
+		return err
 	}
-	tmp := s.lengthsPath() + ".tmp"
-	if os.WriteFile(tmp, b, 0o644) == nil {
-		_ = os.Rename(tmp, s.lengthsPath())
-	}
+	return writeFileAtomic(s.lengthsPath(), b, 0o644)
 }
 
 func (s *Store) loadLastSample() {
-	f, err := os.Open(s.historyPath())
+	lines, err := readLines(s.historyPath())
 	if err != nil {
 		return
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	var last Sample
-	found := false
-	for sc.Scan() {
+	// Walk backwards to the most recent decodable sample.
+	for i := len(lines) - 1; i >= 0; i-- {
 		var smp Sample
-		if json.Unmarshal(sc.Bytes(), &smp) == nil {
-			last = smp
-			found = true
+		if json.Unmarshal(lines[i], &smp) != nil {
+			continue
 		}
-	}
-	if !found {
+		for k, t := range smp.ResetsAt {
+			s.last[metrics.Kind(k)] = t
+		}
 		return
-	}
-	for k, t := range last.ResetsAt {
-		s.last[metrics.Kind(k)] = t
 	}
 }
 
 // Record appends a sample and learns window lengths when resets advance.
-func (s *Store) Record(now time.Time, u opencode.Usage) {
+func (s *Store) Record(now time.Time, u opencode.Usage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -141,17 +136,25 @@ func (s *Store) Record(now time.Time, u opencode.Usage) {
 		s.last[k] = w.ResetsAt
 	}
 	if learnedChanged {
-		s.saveLengthsLocked()
+		// A failure to persist learned lengths must not drop the sample.
+		_ = s.saveLengthsLocked()
 	}
+
+	enc, err := json.Marshal(smp)
+	if err != nil {
+		return err
+	}
+	enc = append(enc, '\n')
 
 	f, err := os.OpenFile(s.historyPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		return
+		return err
 	}
-	defer f.Close()
-	enc, _ := json.Marshal(smp)
-	enc = append(enc, '\n')
-	_, _ = f.Write(enc)
+	if _, err = f.Write(enc); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // Lengths returns a copy of the learned window lengths.
@@ -173,17 +176,14 @@ func (s *Store) Lengths() metrics.Lengths {
 func (s *Store) Recent(limit int) []Sample {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	f, err := os.Open(s.historyPath())
+	lines, err := readLines(s.historyPath())
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	var all []Sample
-	for sc.Scan() {
+	all := make([]Sample, 0, len(lines))
+	for _, line := range lines {
 		var smp Sample
-		if json.Unmarshal(sc.Bytes(), &smp) == nil {
+		if json.Unmarshal(line, &smp) == nil {
 			all = append(all, smp)
 		}
 	}
@@ -193,39 +193,64 @@ func (s *Store) Recent(limit int) []Sample {
 	return all
 }
 
+// trim bounds the history file to a fixed number of records once it grows past
+// a threshold.
 func (s *Store) trim() {
+	const (
+		trimThreshold = 8 << 20
+		keepRecords   = 10000
+	)
 	fi, err := os.Stat(s.historyPath())
-	if err != nil || fi.Size() < 8<<20 {
+	if err != nil || fi.Size() < trimThreshold {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	f, err := os.Open(s.historyPath())
-	if err != nil {
+	lines, err := readLines(s.historyPath())
+	if err != nil || len(lines) <= keepRecords {
 		return
 	}
+	lines = lines[len(lines)-keepRecords:]
+
+	var buf []byte
+	for _, l := range lines {
+		buf = append(buf, l...)
+		buf = append(buf, '\n')
+	}
+	_ = writeFileAtomic(s.historyPath(), buf, 0o644)
+}
+
+// readLines returns the non-empty lines of path. A missing file yields no
+// lines and no error.
+func readLines(path string) ([][]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
 	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	sc.Buffer(make([]byte, 0, 64*1024), maxLineBytes)
 	var lines [][]byte
 	for sc.Scan() {
 		lines = append(lines, append([]byte(nil), sc.Bytes()...))
 	}
-	f.Close()
-	if len(lines) <= 10000 {
-		return
+	if err := sc.Err(); err != nil {
+		return nil, err
 	}
-	lines = lines[len(lines)-10000:]
-	tmp := s.historyPath() + ".tmp"
-	out, err := os.Create(tmp)
-	if err != nil {
-		return
+	return lines, nil
+}
+
+// writeFileAtomic writes data to path via a temporary file and rename.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
 	}
-	for _, l := range lines {
-		_, _ = out.Write(l)
-		_, _ = out.Write([]byte{'\n'})
-	}
-	out.Close()
-	_ = os.Rename(tmp, s.historyPath())
+	return os.Rename(tmp, path)
 }
 
 // plausibleWindow guards against learning a bogus length when the daemon was

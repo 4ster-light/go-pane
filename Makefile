@@ -12,7 +12,9 @@ LDFLAGS := -X github.com/4ster-light/go-pane/internal/version.Version=$(VERSION)
            -X github.com/4ster-light/go-pane/internal/version.Commit=$(COMMIT) \
            -X github.com/4ster-light/go-pane/internal/version.Date=$(DATE)
 
-.PHONY: build test vet fmt run plasmoid-install plasmoid-upgrade install uninstall dev clean
+.PHONY: build test vet fmt fmt-check lint check run plasmoid-install plasmoid-upgrade install uninstall dev clean
+
+GOLANGCI_LINT ?= golangci-lint
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/go-pane
@@ -25,6 +27,14 @@ vet:
 
 fmt:
 	gofmt -w .
+
+fmt-check:
+	@test -z "$$(gofmt -l .)" || { echo "gofmt needed:"; gofmt -l .; exit 1; }
+
+lint:
+	$(GOLANGCI_LINT) run ./...
+
+check: fmt-check vet test lint
 
 run:
 	go run ./cmd/go-pane serve

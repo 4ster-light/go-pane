@@ -136,7 +136,7 @@ func (c *Client) FetchUsage(ctx context.Context) (Usage, error) {
 	if err != nil {
 		return out, &Error{Kind: KindNetwork, Message: "request failed", Err: err}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
