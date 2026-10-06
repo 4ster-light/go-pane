@@ -60,6 +60,20 @@ For iterating on the plasmoid:
 make dev            # kpackagetool6 -u + plasmawindowed
 ```
 
+### Install the daemon only
+
+The KDE applet is installed separately, but if you only want the daemon and CLI
+you can install them straight from the module:
+
+```sh
+go install github.com/4ster-light/go-pane/cmd/go-pane@latest
+```
+
+This builds from source and installs `go-pane` into `$(go env GOPATH)/bin`
+(usually `~/go/bin`); make sure that directory is on your `PATH`. The applet
+still has to be installed with
+`kpackagetool6 -t Plasma/Applet -i packaging/io.github.4ster-light.go-pane`.
+
 ## API key discovery
 
 `go-pane` looks for the key in this order (first match wins):
