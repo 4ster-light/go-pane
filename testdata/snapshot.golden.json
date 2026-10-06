@@ -1,0 +1,63 @@
+{
+  "fetchedAt": "2026-10-06T08:40:48Z",
+  "stale": false,
+  "headline": "monthly",
+  "order": [
+    "rolling",
+    "weekly",
+    "monthly"
+  ],
+  "windows": {
+    "monthly": {
+      "kind": "monthly",
+      "title": "Monthly",
+      "status": "ok",
+      "usedPercent": 57,
+      "availablePercent": 43,
+      "resetsAt": "2026-10-25T14:02:02Z",
+      "windowSeconds": 2592000,
+      "windowEstimated": true,
+      "elapsedPercent": 35.92307098765432,
+      "remainingSeconds": 1660874,
+      "paceRatio": 1.5867240309045176,
+      "projectedUsedPercent": 158.67240309045175,
+      "exhaustsAt": "2026-10-14T11:47:56.385964912Z",
+      "safeRatePerHour": 0.09320393961251726,
+      "budgetPerHour": 0.1388888888888889
+    },
+    "rolling": {
+      "kind": "rolling",
+      "title": "Rolling",
+      "status": "ok",
+      "usedPercent": 0,
+      "availablePercent": 100,
+      "resetsAt": "2026-10-06T13:39:32Z",
+      "windowSeconds": 18000,
+      "windowEstimated": true,
+      "elapsedPercent": 0.42222222222222217,
+      "remainingSeconds": 17924,
+      "paceRatio": 0,
+      "projectedUsedPercent": 0,
+      "exhaustsAt": null,
+      "safeRatePerHour": 20.084802499442088,
+      "budgetPerHour": 20
+    },
+    "weekly": {
+      "kind": "weekly",
+      "title": "Weekly",
+      "status": "ok",
+      "usedPercent": 20,
+      "availablePercent": 80,
+      "resetsAt": "2026-10-12T00:00:00Z",
+      "windowSeconds": 604800,
+      "windowEstimated": true,
+      "elapsedPercent": 19.452380952380953,
+      "remainingSeconds": 487152,
+      "paceRatio": 1.0281517747858018,
+      "projectedUsedPercent": 102.81517747858018,
+      "exhaustsAt": "2026-10-11T19:24:00Z",
+      "safeRatePerHour": 0.5911912503694946,
+      "budgetPerHour": 0.5952380952380952
+    }
+  }
+}

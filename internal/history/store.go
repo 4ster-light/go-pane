@@ -202,28 +202,38 @@ func (s *Store) trim() {
 		trimThreshold = 8 << 20
 		keepRecords   = 10000
 	)
-	fi, err := os.Stat(s.historyPath())
-	if err != nil || fi.Size() < trimThreshold {
-		return
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	lines, err := readLines(s.historyPath())
-	if err != nil || len(lines) <= keepRecords {
-		return
+	_ = trimFile(s.historyPath(), trimThreshold, keepRecords)
+}
+
+// trimFile rewrites path with its last keep lines when the file is at least
+// threshold bytes. It is a no-op if the file is missing, smaller than the
+// threshold, or already within keep lines.
+func trimFile(path string, threshold int64, keep int) error {
+	fi, err := os.Stat(path)
+	if err != nil || fi.Size() < threshold {
+		return nil
 	}
-	lines = lines[len(lines)-keepRecords:]
+	lines, err := readLines(path)
+	if err != nil {
+		return err
+	}
+	if len(lines) <= keep {
+		return nil
+	}
+	lines = lines[len(lines)-keep:]
 
 	var buf []byte
 	for _, l := range lines {
 		buf = append(buf, l...)
 		buf = append(buf, '\n')
 	}
-	_ = writeFileAtomic(s.historyPath(), buf, 0o644)
+	return writeFileAtomic(path, buf, 0o644)
 }
 
-// readLines returns the non-empty lines of path. A missing file yields no
-// lines and no error.
+// readLines returns the lines of path. A missing file yields no lines and no
+// error.
 func readLines(path string) ([][]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
