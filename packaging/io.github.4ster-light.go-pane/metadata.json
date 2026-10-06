@@ -6,7 +6,7 @@
     "Description": "OpenCode Go rolling, weekly and monthly usage with reset countdowns and pacing, fetched directly from the API",
     "Icon": "office-chart-line",
     "Category": "System Information",
-    "Version": "0.1.0",
+    "Version": "0.2.0",
     "License": "MIT",
     "Authors": [
       { "Name": "4ster-light", "Email": "" }
