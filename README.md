@@ -15,8 +15,10 @@ A native KDE Plasma 6 widget that shows live **OpenCode Go** subscription usage
 (rolling / weekly / monthly) with reset countdowns and derived pacing metrics.
 
 As of **v0.2.0** the whole thing is a single, self-contained QML plasmoid. There
-is no daemon, no helper process and no Go toolchain: the applet calls the
-OpenCode Go usage API directly and derives every metric in JavaScript.
+is no daemon and no Go toolchain: the applet calls the OpenCode Go usage API
+directly, derives every metric in JavaScript, and discovers the API key from the
+same places the old daemon used (plus a manual override). Key discovery was
+restored in **v0.2.1**.
 
 ```
 OpenCode Go API ──> Plasma applet (single main.qml + KConfig)
@@ -32,24 +34,27 @@ OpenCode Go API ──> Plasma applet (single main.qml + KConfig)
   detailed popup.
 - Configurable API key, base URL, refresh interval, warning/critical
   thresholds, visible windows and panel headline, all from the widget's popup.
+- Automatic API key discovery (env vars, `~/.config/go-pane/…`,
+  `~/.pi/agent/auth.json`) with a manual override.
 - Stale/error states and a one-click refresh.
 
 ## Requirements
 
-- KDE Plasma 6 (`kpackagetool6`)
+- KDE Plasma 6 (`kpackagetool6` and `plasma5support`)
 - An OpenCode **API key** (`oc_sk_…`). The OAuth token used by the opencode CLI
   is _not_ accepted by the usage endpoint.
 
-Go is **not** required anymore.
+Go is **not** required anymore. `plasma5support` is used only to run the key
+discovery command once at startup.
 
 ## Install
 
-Download `go-pane-0.2.0.plasmoid` from the
+Download `go-pane-0.2.1.plasmoid` from the
 [latest release](https://github.com/4ster-light/go-pane/releases/latest) and
 install it:
 
 ```sh
-kpackagetool6 -t Plasma/Applet -i go-pane-0.2.0.plasmoid
+kpackagetool6 -t Plasma/Applet -i go-pane-0.2.1.plasmoid
 ```
 
 Or build it from a git clone:
@@ -64,8 +69,8 @@ make install
 install that way.
 
 Then right-click the panel, choose **Add Widgets…**, and add **OpenCode Go
-Usage**. The settings open automatically the first time; paste your API key and
-the widget starts polling.
+Usage**. The widget discovers an existing API key automatically; if it cannot
+find one it opens its settings so you can paste it.
 
 To upgrade an existing install:
 
@@ -80,7 +85,7 @@ widget's Plasma configuration (a `0600` file):
 
 | Setting         | Default                          | Description                                     |
 | --------------- | -------------------------------- | ----------------------------------------------- |
-| API key         | *(empty)*                        | `oc_sk_…` bearer key for the usage endpoint.    |
+| API key         | *(empty)*                        | Optional override; empty means auto-detect.     |
 | API base URL    | `https://opencode.ai/zen/go/v1`  | Change if the endpoint moves.                   |
 | Refresh (s)     | `60`                             | Poll interval, 5–3600 seconds.                  |
 | Warn / critical | `70` / `90`                      | Used-% thresholds for amber / red.              |
@@ -89,9 +94,18 @@ widget's Plasma configuration (a `0600` file):
 
 ## API key discovery
 
-The key is stored in the widget's own Plasma configuration. There is no
-environment variable or key-file lookup in the QML-only design; if you prefer to
-keep the key out of KConfig, use v0.1.0 (the Go daemon) instead.
+If the widget's **API key** field is empty it discovers the key automatically,
+first match wins:
+
+1. `OPENCODE_API_KEY`
+2. `OPENCODE_GO_API_KEY`
+3. `~/.config/go-pane/api_key` (plain text)
+4. `~/.config/go-pane/config.json` → `apiKey`
+5. `~/.pi/agent/auth.json` → `opencode-go.key`
+
+Anything you type into the **API key** field takes precedence and is stored in
+the widget's Plasma configuration. The 🔍 button next to the field re-runs
+discovery, and the popup shows which source is currently in use.
 
 ## Notes
 
@@ -105,9 +119,10 @@ keep the key out of KConfig, use v0.1.0 (the Go daemon) instead.
 
 ## Security
 
-The API key is a bearer credential and is written to the widget's KConfig in
-your Plasma configuration directory. That file is created `0600`, but it is not
-encrypted. Rotate the key in the OpenCode console if it leaks.
+The API key is a bearer credential. When auto-discovered it is only read into
+memory and never copied to KConfig; if you enter it manually it is written to
+the widget's Plasma configuration (a `0600` file, not encrypted). Rotate the key
+in the OpenCode console if it leaks.
 
 ## Development
 

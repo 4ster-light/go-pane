@@ -7,7 +7,7 @@
 
   <group name="General">
     <entry name="apiKey" type="String">
-      <label>OpenCode Go API key (oc_sk_...). Stored in this widget's config.</label>
+      <label>OpenCode Go API key (oc_sk_...). Leave empty to auto-detect.</label>
       <default></default>
     </entry>
     <entry name="baseUrl" type="String">

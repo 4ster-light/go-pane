@@ -69,6 +69,8 @@ scripts/validate_package.py     static package checks used by CI
   `Layout.preferred*` bounds so the panel can size them.
 - Declare every configuration key in `contents/config/main.xml`; the validator
   fails the build otherwise.
+- Local file access via `XMLHttpRequest` is disabled in Qt. To read a file, use
+  the `plasma5support` executable data engine (see key discovery in `PLAN.md`).
 - Validate with `qmllint` when available and `make check` always.
 
 ### Python

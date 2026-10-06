@@ -9,6 +9,7 @@ import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.components as PlasmaComponents3
+import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
 
 PlasmoidItem {
@@ -20,8 +21,18 @@ PlasmoidItem {
         var v = Plasmoid.configuration.baseUrl;
         return (v && v.length > 0) ? v : "https://opencode.ai/zen/go/v1";
     }
-    readonly property string apiKey: Plasmoid.configuration.apiKey || ""
+    readonly property string configuredApiKey: Plasmoid.configuration.apiKey || ""
     readonly property int refreshMs: Math.max(5, Plasmoid.configuration.refreshSeconds || 60) * 1000
+
+    // The manually entered key (if any) wins; otherwise the key discovered from
+    // the usual locations is used. Discovery mirrors the old daemon's order:
+    //   env -> ~/.config/go-pane/api_key -> ~/.config/go-pane/config.json
+    //       -> ~/.pi/agent/auth.json
+    property string discoveredApiKey: ""
+    property string discoveredApiKeySource: ""
+    readonly property string apiKey: configuredApiKey.length > 0 ? configuredApiKey : discoveredApiKey
+    // The first line of the output is the source, the rest is its contents.
+    readonly property string discoveryCommand: "sh -c 'if [ -n \"$OPENCODE_API_KEY\" ]; then printf \"OPENCODE_API_KEY\\n%s\\n\" \"$OPENCODE_API_KEY\"; elif [ -n \"$OPENCODE_GO_API_KEY\" ]; then printf \"OPENCODE_GO_API_KEY\\n%s\\n\" \"$OPENCODE_GO_API_KEY\"; elif [ -f \"$HOME/.config/go-pane/api_key\" ]; then printf \"%s\\n\" \"$HOME/.config/go-pane/api_key\"; cat \"$HOME/.config/go-pane/api_key\"; elif [ -f \"$HOME/.config/go-pane/config.json\" ]; then printf \"%s\\n\" \"$HOME/.config/go-pane/config.json\"; cat \"$HOME/.config/go-pane/config.json\"; elif [ -f \"$HOME/.pi/agent/auth.json\" ]; then printf \"%s\\n\" \"$HOME/.pi/agent/auth.json\"; cat \"$HOME/.pi/agent/auth.json\"; fi'"
 
     readonly property var windowOrder: ["rolling", "weekly", "monthly"]
     // Window lengths are inferred: rolling ~5h and the weekly reset is Monday
@@ -103,6 +114,43 @@ PlasmoidItem {
             return i18n("empty now");
         }
         return i18n("empty in %1", root.formatDuration(secs));
+    }
+
+    // --- Key discovery ---------------------------------------------------
+    function parseDiscovery(output) {
+        if (!output) {
+            return null;
+        }
+        var nl = output.indexOf("\n");
+        if (nl < 0) {
+            return null;
+        }
+        var source = output.substring(0, nl).trim();
+        var body = output.substring(nl + 1);
+        var key = "";
+        if (source.indexOf("auth.json") >= 0) {
+            try {
+                var auth = JSON.parse(body);
+                var entry = auth["opencode-go"] || auth["opencode_go"];
+                key = (entry && entry.key) ? entry.key : "";
+            } catch (e) {
+                key = "";
+            }
+        } else if (source.slice(-5) === ".json") {
+            try {
+                key = JSON.parse(body).apiKey || "";
+            } catch (e) {
+                key = "";
+            }
+        } else {
+            key = body.trim();
+        }
+        key = String(key).trim();
+        return key.length > 0 ? { key: key, source: source } : null;
+    }
+
+    function discoverApiKey() {
+        keyDiscovery.connectSource(root.discoveryCommand);
     }
 
     // --- Metrics ---------------------------------------------------------
@@ -198,14 +246,34 @@ PlasmoidItem {
     }
 
     Component.onCompleted: {
-        if (!root.apiKey) {
-            root.showSettings = true;
+        if (!root.configuredApiKey) {
+            root.discoverApiKey();
+        }
+    }
+
+    // Runs the discovery command once and feeds the result back to the applet.
+    P5Support.DataSource {
+        id: keyDiscovery
+        engine: "executable"
+        connectedSources: []
+
+        onNewData: function (sourceName, data) {
+            keyDiscovery.disconnectSource(sourceName);
+            var result = root.parseDiscovery((data && data["stdout"]) ? data["stdout"] : "");
+            if (result) {
+                root.discoveredApiKey = result.key;
+                root.discoveredApiKeySource = result.source;
+                root.lastError = "";
+            } else if (!root.configuredApiKey) {
+                root.lastError = i18n("No API key configured");
+                root.showSettings = true;
+            }
         }
     }
 
     Timer {
         interval: root.refreshMs
-        running: true
+        running: root.apiKey.length > 0
         repeat: true
         triggeredOnStart: true
         onTriggered: root.refresh()
@@ -490,8 +558,8 @@ PlasmoidItem {
                         id: apiKeyField
                         Layout.fillWidth: true
                         echoMode: root.keyVisible ? TextInput.Normal : TextInput.Password
-                        placeholderText: "oc_sk_…"
-                        Component.onCompleted: text = root.apiKey
+                        placeholderText: i18n("Auto-detected if left empty")
+                        Component.onCompleted: text = root.configuredApiKey
                         onEditingFinished: {
                             Plasmoid.configuration.apiKey = text;
                             root.refresh();
@@ -501,6 +569,30 @@ PlasmoidItem {
                     PlasmaComponents3.ToolButton {
                         text: root.keyVisible ? i18n("Hide") : i18n("Show")
                         onClicked: root.keyVisible = !root.keyVisible
+                    }
+
+                    PlasmaComponents3.ToolButton {
+                        icon.name: "edit-find"
+                        onClicked: root.discoverApiKey()
+                        PlasmaComponents3.ToolTip {
+                            text: i18n("Detect key from disk")
+                        }
+                    }
+                }
+
+                PlasmaComponents3.Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.75
+                    text: {
+                        if (root.configuredApiKey.length > 0) {
+                            return i18n("Using the key entered here.");
+                        }
+                        if (root.discoveredApiKey.length > 0) {
+                            return i18n("Using the key discovered from %1.", root.discoveredApiKeySource);
+                        }
+                        return i18n("No key found. Enter one above, or put it in ~/.config/go-pane/api_key or ~/.pi/agent/auth.json.");
                     }
                 }
 

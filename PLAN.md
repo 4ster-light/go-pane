@@ -22,6 +22,7 @@ and no Go code.
 │ Plasma applet  io.github.4ster-light.go-pane                       │
 │  contents/ui/main.qml                                              │
 │    • KConfig-backed settings (API key, base URL, thresholds, …)    │
+│    • key discovery via the plasma5support executable engine        │
 │    • XMLHttpRequest polling on a Timer                             │
 │    • metrics engine (pace, projection, ETA, safe rate) in JS       │
 │    • compact panel + detailed popup representations                │
@@ -56,6 +57,25 @@ from the applet works.
 
 Writes go straight to `Plasmoid.configuration`, which persists to the applet's
 KConfig group (a `0600` file) immediately.
+
+### Key discovery
+
+`file://` XHR is disabled in Qt by default, so file reads go through the
+`plasma5support` *executable* data engine instead. One `sh -c` command runs at
+startup (and when the 🔍 button is pressed) and prints the source path on the
+first line and its contents after it; the QML parses the result.
+
+Precedence (first match wins), with the manual setting above all of it:
+
+1. `OPENCODE_API_KEY`
+2. `OPENCODE_GO_API_KEY`
+3. `~/.config/go-pane/api_key` (plain text)
+4. `~/.config/go-pane/config.json` → `apiKey`
+5. `~/.pi/agent/auth.json` → `opencode-go.key`
+
+Discovered keys are held in memory only; they are never written to KConfig.
+Only a manually entered key is. `apiKeyFile` inside `config.json` is not
+resolved by the QML discovery (the old daemon supported it).
 
 ---
 
@@ -153,16 +173,18 @@ the applet. It was robust but heavyweight for a single-user widget.
 
 Because the API is CORS-permissive and the only state the applet needs is a
 handful of derived numbers, the daemon was removed in v0.2.0 and its logic
-folded into one QML file. What was lost:
+folded into one QML file. Key discovery was re-added in v0.2.1 through the
+`plasma5support` executable engine. What was lost:
 
 - exact window-length learning (defaults are used instead);
 - history/sparklines and delta tracking;
-- keeping the key out of KConfig;
+- `apiKeyFile` resolution inside `~/.config/go-pane/config.json`;
 - the `doctor`/`once` CLI and the loopback HTTP API.
 
 What was gained:
 
 - one file to read and install, no systemd unit, no Go build, no port;
-- fewer moving parts and a simpler key setup (paste it into the widget).
+- the API key is auto-discovered (and only stored in KConfig if entered by
+  hand).
 
 The full Go implementation remains available in git history at tag `v0.1.0`.
