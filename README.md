@@ -83,14 +83,6 @@ kpackagetool6 -t Plasma/Applet -i packaging/io.github.4ster-light.go-pane
 Then right-click the panel, choose **Add Widgets…**, and add **OpenCode Go
 Usage**.
 
-### Development
-
-For iterating on the plasmoid:
-
-```sh
-make dev            # kpackagetool6 -u + plasmawindowed
-```
-
 ## API key discovery
 
 `go-pane` looks for the key in this order (first match wins):
@@ -124,7 +116,7 @@ you prefer not to run the daemon.
 
 - `GET /healthz`
 - `GET /v1/usage` — the full computed snapshot
-- `GET /v1/history?window=monthly&limit=288` — raw samples for charts
+- `GET /v1/history?limit=288` — raw samples for charts (oldest first)
 
 ## Configuration
 
@@ -138,6 +130,9 @@ Edit via the widget's settings, or `~/.config/go-pane/config.json`:
   "apiKeyFile": "~/.config/go-pane/api_key"
 }
 ```
+
+`apiKey` is also accepted, but storing a secret in `config.json` is discouraged;
+prefer `apiKeyFile` or an environment variable.
 
 ## Notes
 

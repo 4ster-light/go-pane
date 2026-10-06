@@ -109,12 +109,12 @@ Where the API key comes from on this machine:
 │  • poller (30–60s) + exponential backoff      │                   │
 │  • metrics engine (pace, projection, ETA)     │───────────────────┘
 │  • history store (JSONL under XDG state)      │
-│  • HTTP server 127.0.0.1:17873 (JSON + SSE)   │
+│  • HTTP server 127.0.0.1:17873 (JSON)         │
 └───────────────────────────────────────────────┘
              ▲  HTTP GET http://127.0.0.1:17873/v1/usage
              │  (QML XMLHttpRequest, every refresh interval)
 ┌────────────┴──────────────────────────────────┐
-│ Plasma applet  io.github.<you>.go-pane         │
+│ Plasma applet  io.github.4ster-light.go-pane   │
 │  contents/ui/main.qml  (compact + full)        │
 │  contents/ui/UsageRow.qml, Config*.qml         │
 │  contents/config/main.xml                      │
@@ -141,22 +141,22 @@ go-pane/
 ├── PLAN.md
 ├── README.md
 ├── LICENSE                       # MIT (suggested)
-├── go.mod                        # module go-pane (or github.com/<you>/go-pane)
+├── go.mod                        # module github.com/4ster-light/go-pane
 ├── Makefile
 ├── cmd/
 │   └── go-pane/
-│       └── main.go               # serve | once | json | doctor | install | version
+│       └── main.go               # serve | once | json | doctor | version
 ├── internal/
 │   ├── config/config.go          # flags, env, key discovery, XDG paths
 │   ├── opencode/client.go        # API client + retries + typed errors
 │   ├── metrics/metrics.go        # window model + derived metrics
 │   ├── metrics/metrics_test.go
 │   ├── history/store.go          # append/read samples (JSONL), window-length learn
-│   ├── server/server.go          # HTTP JSON + SSE, CORS, loopback guard
+│   ├── server/server.go          # HTTP JSON, CORS, loopback guard
 │   └── version/version.go
 ├── packaging/
 │   ├── go-pane.service           # systemd --user unit
-│   └── io.github.<you>.go-pane/  # the plasmoid KPackage
+│   └── io.github.4ster-light.go-pane/  # the plasmoid KPackage
 │       ├── metadata.json
 │       └── contents/
 │           ├── config/main.xml
@@ -169,8 +169,7 @@ go-pane/
     └── usage.sample.json
 ```
 
-Module path is a decision point — default to `go-pane` for a local build, or a
-real `github.com/<you>/go-pane` if publishing.
+Module path is `github.com/4ster-light/go-pane`.
 
 ---
 
@@ -179,11 +178,10 @@ real `github.com/<you>/go-pane` if publishing.
 ### 6.1 CLI
 
 ```
-go-pane serve   [--addr 127.0.0.1:17873] [--interval 60s] [--api-key-file PATH]
-go-pane once    [--json] [--pretty]        # one API call, print computed metrics
-go-pane json    [--pretty]                 # alias of `once --json`
-go-pane doctor                             # check key discovery + API reachability
-go-pane install [--plasmoid] [--systemd]   # copy binary/unit, kpackagetool6 -i
+go-pane serve   [--addr 127.0.0.1:17873] [--interval 60s] [--base-url URL] [--api-key-file PATH] [--log-level LEVEL]
+go-pane once    [--json] [--base-url URL] [--api-key-file PATH]
+go-pane json    [--base-url URL] [--api-key-file PATH]   # alias of `once --json`
+go-pane doctor  [--base-url URL] [--api-key-file PATH]   # check key discovery + reachability
 go-pane version
 ```
 
@@ -213,10 +211,12 @@ thresholds, monthly window override, whether to include free/zero-cost models.
 - `Client{http.Client, baseURL, apiKey}` with `FetchUsage(ctx) (Usage, error)`.
 - Request: `GET {base}/zen/go/v1/usage`, `Authorization: Bearer`,
   `Accept: application/json`.
-- 10s timeout; retry on 429/5xx/network with jittered exponential backoff (max
-  ~4 attempts); honor `Retry-After` if present.
-- Typed errors: `ErrUnauthorized`, `ErrRateLimited`, `ErrServer`, `ErrNetwork`
-  so the UI can render distinct states.
+- 15s timeout; `FetchUsage` performs a single attempt. Callers own retries: the
+  daemon backs off its poll interval, and `once`/`json` use a capped retry
+  helper. `Retry-After` is not honored yet.
+- Typed errors: `Error{Kind, StatusCode}` with `KindAuth`, `KindRateLimit`,
+  `KindServer`, `KindNetwork`, `KindDecode`, inspected via `IsKind`, so callers
+  can render distinct states.
 - Parse `resetsAt` with `time.RFC3339` (Go accepts the `.000` fraction).
 
 ### 6.4 Poller & cache
@@ -238,8 +238,9 @@ unit-testable with an injected clock.
 
 - `GET /healthz` → `200 ok`
 - `GET /v1/usage` → latest `Snapshot` (below)
-- `GET /v1/history?window=weekly&limit=288` → samples for sparklines
-- `GET /v1/events` → optional SSE push (nice-to-have; polling is enough)
+- `GET /v1/history?limit=288` → samples for sparklines (each sample holds every
+  window, so no server-side window filter)
+- `GET /v1/events` → optional SSE push (not implemented; polling is enough)
 - Headers: `Access-Control-Allow-Origin: *`, `Cache-Control: no-store`.
 - Reject non-loopback peers defensively (bind + check `RemoteAddr`).
 
@@ -319,15 +320,15 @@ the socket is unreachable.
 {
   "KPackageStructure": "Plasma/Applet",
   "KPlugin": {
-    "Id": "io.github.<you>.go-pane",
+    "Id": "io.github.4ster-light.go-pane",
     "Name": "OpenCode Go Usage",
     "Description": "Live OpenCode Go rolling/weekly/monthly usage, resets and pacing",
     "Icon": "office-chart-line",
     "Category": "System Information",
-    "Version": "1.0.0",
+    "Version": "0.1.0",
     "License": "MIT",
-    "Authors": [{ "Name": "<you>" }],
-    "Website": "https://github.com/<you>/go-pane"
+    "Authors": [{ "Name": "4ster-light" }],
+    "Website": "https://github.com/4ster-light/go-pane"
   },
   "X-Plasma-API-Minimum-Version": "6.0"
 }
@@ -341,7 +342,8 @@ the socket is unreachable.
     `org.kde.plasma.extras as PlasmaExtras`, `org.kde.kirigami as Kirigami`.
   - `Plasmoid.compactRepresentation` and `Plasmoid.fullRepresentation`.
   - `Timer` + `XMLHttpRequest` GET `http://127.0.0.1:17873/v1/usage`.
-  - `Plasmoid.status` / `Plasmoid.busy` reflect `stale`/`error`.
+  - Stale/error states are shown as a label in the full representation; the
+    plasmoid status/busy hints are not wired up yet.
   - `Plasmoid.toolTipMainText`/`toolTipSubText` for the panel tooltip.
 - `UsageRow.qml` — reusable per-window row: label, progress bar, `% left`, reset
   countdown, pace badge, optional sparkline.
@@ -370,12 +372,12 @@ Header shows last update + a refresh button; stale/error states get a banner.
 `Int warnPercent` (70), `Int criticalPercent` (90),
 `Bool showRolling/Weekly/
 Monthly`, `String compactMode`
-(`constrained`|`monthly`|`rolling`), `Bool
-notifyOnThreshold`.
+(`constrained`|`monthly`|`rolling`). A `Bool notifyOnThreshold` is planned
+(phase 5) but not implemented.
 
 The API key is **not** stored in KConfig — it lives only in the Go config file
-(`0600`) or the env. The config page shows the resolved key **source** (not the
-value) via the daemon's `/v1/usage` metadata.
+(`0600`) or the env. `go-pane doctor` prints the resolved key **source** (not
+the value); the applet does not display it.
 
 ---
 
@@ -401,7 +403,8 @@ Edge cases: `elapsedFrac == 0` → pace undefined ("just reset"); `used == 0` �
 ETA; `status != ok` → override color/text; stale snapshot → grey + age.
 
 **Headline selection:** the window with the highest `projectedUsedPercent`
-(tie-break highest `used`). Configurable.
+(falling back to `usedPercent` when no projection exists); ties keep the first
+window in display order.
 
 Human formatting helpers: `formatDuration` (days+hours, or hours+minutes under
 24h) and `formatPercent` (round to int unless <1%).
@@ -416,11 +419,11 @@ Makefile targets:
 make build            # go build -o bin/go-pane ./cmd/go-pane
 make test             # go test ./...
 make run              # go run ./cmd/go-pane serve
-make plasmoid-install # kpackagetool6 -t Plasma/Applet -i packaging/io.github.<you>.go-pane
-make plasmoid-upgrade # kpackagetool6 -t Plasma/Applet -u packaging/io.github.<you>.go-pane
+make plasmoid-install # kpackagetool6 -t Plasma/Applet -i packaging/io.github.4ster-light.go-pane
+make plasmoid-upgrade # kpackagetool6 -t Plasma/Applet -u packaging/io.github.4ster-light.go-pane
 make install          # binary -> ~/.local/bin, unit -> ~/.config/systemd/user, plasmoid
 make uninstall
-make dev              # plasmawindowed io.github.<you>.go-pane
+make dev              # plasmawindowed io.github.4ster-light.go-pane
 ```
 
 Optional dev packages for QML validation: `qt6-qtdeclarative-devel` (provides
@@ -472,8 +475,8 @@ Optional dev packages for QML validation: `qt6-qtdeclarative-devel` (provides
    are observations; `monthly` is an anniversary. Learning from history is the
    safe approach; defaults are documented as estimates.
 3. **Key type.** Only `oc_sk_…` works; OAuth `st_…` does not. Document clearly.
-4. **Naming/module path** (`go-pane` vs `github.com/<you>/go-pane`) and plasmoid
-   id (`io.github.<you>.go-pane`) need your input.
+4. **Naming/module path** — resolved: `github.com/4ster-light/go-pane` and
+   plasmoid id `io.github.4ster-light.go-pane`.
 5. **Daemon lifecycle:** systemd unit vs plasmoid-managed process. Recommend
    systemd; keep one-shot fallback.
 6. **Multiple panels/instances:** one shared daemon serves all applets.
@@ -525,11 +528,17 @@ Implemented:
 
 Deviations from the plan:
 
-- `server.Provider.History` takes only `limit` (the window filter happens in the
-  client, since a sample already contains every window).
+- `server.Provider.History` takes only `limit`. The `/v1/history` `window` query
+  parameter was dropped rather than implemented, since every sample already
+  contains all windows.
+- Retries live in the caller, not `internal/opencode`; there is no jitter or
+  `Retry-After` handling yet.
 - One-shot mode also records a history sample so it can learn window lengths
   when used without the daemon.
+- `go-pane install` was dropped; installation is handled by the Makefile.
 - No SSE endpoint yet; the applet polls, which is sufficient at 60s.
+- Plasmoid status/busy hints and the `notifyOnThreshold` setting are not wired
+  up yet.
 
 Next (phase 4+): config-page polish, sparklines, threshold notifications, GitHub
 CI, KDE Store packaging.
