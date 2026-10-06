@@ -66,13 +66,13 @@ ColumnLayout {
 
         PlasmaComponents3.Label {
             visible: row.metric && row.metric.paceRatio !== null && row.metric.paceRatio !== undefined
-            text: row.metric ? Fmt.paceLabel(row.metric.paceRatio) : ""
+            text: row.metric ? Fmt.paceLabel(row.metric.paceRatio, i18n("on pace"), i18n("× pace")) : ""
             font: Kirigami.Theme.smallFont
             opacity: 0.8
         }
 
         PlasmaComponents3.Label {
-            text: row.metric ? Fmt.exhaustLabel(row.metric) : ""
+            text: row.metric ? Fmt.exhaustLabel(row.metric, i18n("empty now"), i18n("empty in")) : ""
             visible: text !== ""
             color: Kirigami.Theme.negativeTextColor
             font: Kirigami.Theme.smallFont

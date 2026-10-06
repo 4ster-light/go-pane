@@ -29,17 +29,19 @@ function formatPercent(v) {
     return Math.round(v) + "%";
 }
 
-function paceLabel(pace) {
+// paceLabel renders a pace ratio. The English words are supplied by the QML
+// caller (via i18n) because .pragma library scripts cannot translate.
+function paceLabel(pace, onPace, suffix) {
     if (pace === undefined || pace === null || isNaN(pace)) {
         return "";
     }
     if (pace >= 0.85 && pace <= 1.15) {
-        return "on pace";
+        return onPace;
     }
-    return pace.toFixed(2) + "\u00d7 pace";
+    return pace.toFixed(2) + suffix;
 }
 
-function exhaustLabel(metric) {
+function exhaustLabel(metric, emptyNow, inPrefix) {
     if (!metric || !metric.exhaustsAt) {
         return "";
     }
@@ -50,7 +52,7 @@ function exhaustLabel(metric) {
     }
     var secs = (exhaust - Date.now()) / 1000;
     if (secs <= 0) {
-        return "empty now";
+        return emptyNow;
     }
-    return "empty in " + formatDuration(secs);
+    return inPrefix + " " + formatDuration(secs);
 }
