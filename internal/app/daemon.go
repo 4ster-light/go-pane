@@ -41,6 +41,10 @@ func newDaemon(cfg config.Config, store *history.Store, log *slog.Logger, fetche
 	if log == nil {
 		log = slog.Default()
 	}
+	// A non-positive interval would make Run busy-loop; fall back to the default.
+	if cfg.Interval <= 0 {
+		cfg.Interval = config.DefaultInterval
+	}
 	return &Daemon{
 		cfg:     cfg,
 		fetcher: fetcher,
