@@ -12,6 +12,11 @@ import (
 	"github.com/4ster-light/go-pane/internal/metrics"
 )
 
+const (
+	defaultHistoryLimit = 288
+	maxHistoryLimit     = 5000
+)
+
 // Provider is the data source the server renders.
 type Provider interface {
 	Snapshot() metrics.Snapshot
@@ -24,6 +29,9 @@ func New(addr string, p Provider) *http.Server {
 		Addr:              addr,
 		Handler:           Handler(p),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 }
 
@@ -31,24 +39,21 @@ func New(addr string, p Provider) *http.Server {
 // it can be exercised in tests without binding a socket.
 func Handler(p Provider) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok\n"))
 	})
-	mux.HandleFunc("/v1/usage", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, p.Snapshot())
+	mux.HandleFunc("GET /v1/usage", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, p.Snapshot(), true)
 	})
-	mux.HandleFunc("/v1/history", func(w http.ResponseWriter, r *http.Request) {
-		limit := 288
+	mux.HandleFunc("GET /v1/history", func(w http.ResponseWriter, r *http.Request) {
+		limit := defaultHistoryLimit
 		if v := r.URL.Query().Get("limit"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 5000 {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= maxHistoryLimit {
 				limit = n
 			}
 		}
-		writeJSON(w, map[string]any{
-			"window":  r.URL.Query().Get("window"),
-			"samples": p.History(limit),
-		})
+		writeJSON(w, map[string]any{"samples": p.History(limit)}, false)
 	})
 	return cors(loopbackOnly(mux))
 }
@@ -83,9 +88,13 @@ func loopbackOnly(next http.Handler) http.Handler {
 	})
 }
 
-func writeJSON(w http.ResponseWriter, v any) {
+// writeJSON encodes v as JSON. The latest snapshot is indented for curl-friendliness;
+// bulkier payloads (history) are written compactly.
+func writeJSON(w http.ResponseWriter, v any, indent bool) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
+	if indent {
+		enc.SetIndent("", "  ")
+	}
 	_ = enc.Encode(v)
 }
