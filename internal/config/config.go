@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,15 @@ type Config struct {
 	APIKeySource string
 	StateDir     string
 	ConfigDir    string
+}
+
+// Options carries the command-line overrides. Zero values fall back to the
+// config file and then to the built-in defaults.
+type Options struct {
+	Addr     string
+	Interval time.Duration
+	BaseURL  string
+	KeyFile  string
 }
 
 type fileConfig struct {
@@ -61,8 +71,15 @@ func StateDir() string {
 	return filepath.Join(home, ".local", "state", "go-pane")
 }
 
-// Load builds the configuration. Explicit flags win over file/env/defaults.
-func Load(addr string, interval time.Duration, baseURL, keyFile string) (Config, error) {
+// Load builds the configuration. Explicit options win over the config file,
+// which wins over the defaults. The API key is resolved in this order:
+//
+//  1. --api-key-file
+//  2. OPENCODE_API_KEY / OPENCODE_GO_API_KEY
+//  3. config.json apiKey / apiKeyFile
+//  4. ~/.config/go-pane/api_key
+//  5. ~/.pi/agent/auth.json opencode-go.key
+func Load(opts Options) (Config, error) {
 	cfg := Config{
 		Addr:      DefaultAddr,
 		Interval:  DefaultInterval,
@@ -72,8 +89,11 @@ func Load(addr string, interval time.Duration, baseURL, keyFile string) (Config,
 	}
 
 	var fc fileConfig
-	if b, err := os.ReadFile(filepath.Join(cfg.ConfigDir, "config.json")); err == nil {
-		_ = json.Unmarshal(b, &fc)
+	configPath := filepath.Join(cfg.ConfigDir, "config.json")
+	if b, err := os.ReadFile(configPath); err == nil {
+		if err := json.Unmarshal(b, &fc); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: ignoring malformed %s: %v\n", configPath, err)
+		}
 	}
 	if fc.Addr != "" {
 		cfg.Addr = fc.Addr
@@ -81,57 +101,59 @@ func Load(addr string, interval time.Duration, baseURL, keyFile string) (Config,
 	if fc.Interval != "" {
 		if d, err := time.ParseDuration(fc.Interval); err == nil && d > 0 {
 			cfg.Interval = d
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: ignoring invalid interval %q in %s\n", fc.Interval, configPath)
 		}
 	}
 	if fc.BaseURL != "" {
 		cfg.BaseURL = fc.BaseURL
 	}
-	if fc.APIKey != "" {
-		cfg.APIKey = fc.APIKey
-		cfg.APIKeySource = "config file"
+	if opts.Addr != "" {
+		cfg.Addr = opts.Addr
 	}
-	if addr != "" {
-		cfg.Addr = addr
+	if opts.Interval > 0 {
+		cfg.Interval = opts.Interval
 	}
-	if interval > 0 {
-		cfg.Interval = interval
-	}
-	if baseURL != "" {
-		cfg.BaseURL = baseURL
+	if opts.BaseURL != "" {
+		cfg.BaseURL = opts.BaseURL
 	}
 
-	if keyFile == "" {
-		keyFile = fc.APIKeyFile
+	key, source, err := resolveKey(opts.KeyFile, fc, os.Stderr)
+	if err != nil {
+		return cfg, err
 	}
-	if keyFile != "" {
-		key, err := readKeyFile(keyFile)
-		if err != nil {
-			return cfg, err
-		}
-		cfg.APIKey = key
-		cfg.APIKeySource = keyFile
-		return cfg, nil
-	}
-
-	if cfg.APIKey == "" {
-		key, source, err := discoverKey()
-		if err != nil {
-			return cfg, err
-		}
-		cfg.APIKey = key
-		cfg.APIKeySource = source
-	}
+	cfg.APIKey = key
+	cfg.APIKeySource = source
 	return cfg, nil
 }
 
-func discoverKey() (string, string, error) {
+// resolveKey implements the documented key-discovery precedence. The warn
+// writer receives permission warnings; nil means os.Stderr.
+func resolveKey(flagKeyFile string, fc fileConfig, warn io.Writer) (string, string, error) {
+	if flagKeyFile != "" {
+		key, err := readKeyFile(flagKeyFile, warn)
+		if err != nil {
+			return "", "", err
+		}
+		return key, flagKeyFile, nil
+	}
 	for _, env := range []string{"OPENCODE_API_KEY", "OPENCODE_GO_API_KEY"} {
 		if v := strings.TrimSpace(os.Getenv(env)); v != "" {
 			return v, "$" + env, nil
 		}
 	}
+	if fc.APIKey != "" {
+		return fc.APIKey, "config file", nil
+	}
+	if fc.APIKeyFile != "" {
+		key, err := readKeyFile(fc.APIKeyFile, warn)
+		if err != nil {
+			return "", "", err
+		}
+		return key, fc.APIKeyFile, nil
+	}
 	if p := filepath.Join(ConfigDir(), "api_key"); fileExists(p) {
-		if key, err := readKeyFile(p); err == nil {
+		if key, err := readKeyFile(p, warn); err == nil {
 			return key, p, nil
 		}
 	}
@@ -148,7 +170,7 @@ func fileExists(path string) bool {
 	return err == nil && !fi.IsDir()
 }
 
-func readKeyFile(path string) (string, error) {
+func readKeyFile(path string, warn io.Writer) (string, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("read key file %s: %w", path, err)
@@ -158,7 +180,10 @@ func readKeyFile(path string) (string, error) {
 		return "", fmt.Errorf("key file %s is empty", path)
 	}
 	if fi, err := os.Stat(path); err == nil && fi.Mode().Perm()&0o077 != 0 {
-		fmt.Fprintf(os.Stderr, "warning: %s is readable by others (%o); run: chmod 600 %s\n", path, fi.Mode().Perm(), path)
+		if warn == nil {
+			warn = os.Stderr
+		}
+		_, _ = fmt.Fprintf(warn, "warning: %s is readable by others (%o); run: chmod 600 %s\n", path, fi.Mode().Perm(), path)
 	}
 	return key, nil
 }

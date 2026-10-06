@@ -10,7 +10,7 @@ func TestDiscoverKeyFromEnv(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("OPENCODE_API_KEY", "oc_sk_env")
-	cfg, err := Load("", 0, "", "")
+	cfg, err := Load(Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestDiscoverKeyFromFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "api_key"), []byte("oc_sk_file\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := Load("", 0, "", "")
+	cfg, err := Load(Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestLoadFlagsOverride(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("OPENCODE_API_KEY", "k")
-	cfg, err := Load("127.0.0.1:9999", 30e9, "https://example.test/v1", "")
+	cfg, err := Load(Options{Addr: "127.0.0.1:9999", Interval: 30e9, BaseURL: "https://example.test/v1"})
 	if err != nil {
 		t.Fatal(err)
 	}

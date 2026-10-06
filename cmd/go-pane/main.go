@@ -69,7 +69,7 @@ func runServe(args []string) int {
 	_ = fs.Parse(args)
 
 	log := newLogger(*logLevel)
-	cfg, err := config.Load(*addr, *interval, *baseURL, *keyFile)
+	cfg, err := config.Load(config.Options{Addr: *addr, Interval: *interval, BaseURL: *baseURL, KeyFile: *keyFile})
 	if err != nil {
 		log.Error("configuration error", "error", err)
 		return 1
@@ -113,7 +113,7 @@ func runOnce(asJSON bool, args []string) int {
 	keyFile := fs.String("api-key-file", "", "file containing the API key")
 	_ = fs.Parse(args)
 
-	cfg, err := config.Load("", 0, *baseURL, *keyFile)
+	cfg, err := config.Load(config.Options{BaseURL: *baseURL, KeyFile: *keyFile})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "configuration error:", err)
 		return 1
@@ -131,13 +131,16 @@ func runOnce(asJSON bool, args []string) int {
 
 	now := time.Now().UTC()
 	lengths := metrics.DefaultLengths()
+	// Record the sample so one-shot mode also refines the learned window
+	// lengths. If a daemon is running it owns the same files; the store's
+	// append is line-atomic, and a lost window-length update is harmless.
 	if store, err := history.Open(cfg.StateDir); err == nil {
 		_ = store.Record(now, usage)
 		lengths = store.Lengths()
 	}
 	snap := metrics.Compute(now, usage, lengths)
 
-	if *jsonFlag || asJSON {
+	if *jsonFlag {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(snap); err != nil {
@@ -156,7 +159,7 @@ func runDoctor(args []string) int {
 	keyFile := fs.String("api-key-file", "", "file containing the API key")
 	_ = fs.Parse(args)
 
-	cfg, err := config.Load("", 0, *baseURL, *keyFile)
+	cfg, err := config.Load(config.Options{BaseURL: *baseURL, KeyFile: *keyFile})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "configuration error:", err)
 		return 1
@@ -175,13 +178,7 @@ func runDoctor(args []string) int {
 		return 1
 	}
 	for _, k := range metrics.Order {
-		w := usage.Rolling
-		switch k {
-		case metrics.Weekly:
-			w = usage.Weekly
-		case metrics.Monthly:
-			w = usage.Monthly
-		}
+		w := metrics.WindowFor(k, usage)
 		fmt.Printf("%-8s %3.0f%% used, resets %s\n", k.Title(), w.Percent, w.ResetsAt.Format(time.RFC3339))
 	}
 	return 0
