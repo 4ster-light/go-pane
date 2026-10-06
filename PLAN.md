@@ -2,11 +2,11 @@
 
 A native KDE Plasma 6 applet that shows live OpenCode Go subscription usage
 (rolling / weekly / monthly), remaining budget, reset countdowns, and derived
-pacing metrics. The "brain" is written in Go; the applet is a thin QML
-plasmoid that renders what the Go process exposes.
+pacing metrics. The "brain" is written in Go; the applet is a thin QML plasmoid
+that renders what the Go process exposes.
 
-Status: **implemented (phases 1–3)** — Go core, daemon, HTTP API and the
-Plasma applet are in place. See "Implementation status" at the end.
+Status: **implemented (phases 1–3)** — Go core, daemon, HTTP API and the Plasma
+applet are in place. See "Implementation status" at the end.
 
 ---
 
@@ -16,10 +16,10 @@ Plasma applets are QML packages loaded by `plasmashell`; they cannot be
 implemented purely in Go. The pragmatic, robust design is therefore a **split**:
 
 - **`go-pane` (Go daemon)** — authenticates to the OpenCode Go API, polls it,
-  computes derived metrics, keeps a small history, and serves the result as
-  JSON over loopback HTTP. Also usable as a one-shot CLI.
-- **`go-pane` plasmoid (QML)** — a normal Plasma 6 applet that polls the
-  daemon and renders compact + full representations and a config page.
+  computes derived metrics, keeps a small history, and serves the result as JSON
+  over loopback HTTP. Also usable as a one-shot CLI.
+- **`go-pane` plasmoid (QML)** — a normal Plasma 6 applet that polls the daemon
+  and renders compact + full representations and a config page.
 
 This keeps all secrets, HTTP, retries, caching, math, and history in Go, while
 the QML layer stays a dumb view. It is also testable end-to-end with `curl`.
@@ -28,26 +28,38 @@ the QML layer stays a dumb view. It is also testable end-to-end with `curl`.
 
 ## 2. Validated facts (probed on this machine, 2026-10-06)
 
-| Thing | Value |
-|---|---|
-| OS / DE | Fedora 44, KDE Plasma **6.7.5** |
+| Thing          | Value                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| OS / DE        | Fedora 44, KDE Plasma **6.7.5**                                                                        |
 | Widget tooling | `kpackagetool6`, `plasmawindowed` present; `plasmoidviewer`/`qml6` **missing** (optional dev packages) |
-| plasma5support | installed — `org.kde.plasma.plasma5support` QML module + `plasma_engine_executable.so` |
-| Go | `go1.26.8 linux/amd64` |
-| API base | `https://opencode.ai/zen/go` (Anthropic-style) and `https://opencode.ai/zen/go/v1` (OpenAI-style) |
-| Usage endpoint | `GET https://opencode.ai/zen/go/v1/usage` |
-| Auth | `Authorization: Bearer <oc_sk_…>` (an **API key**, not the OAuth `st_` token) |
-| CORS | server sends `access-control-allow-origin: *` |
-| Cache | `cache-control: no-store` |
+| plasma5support | installed — `org.kde.plasma.plasma5support` QML module + `plasma_engine_executable.so`                 |
+| Go             | `go1.26.8 linux/amd64`                                                                                 |
+| API base       | `https://opencode.ai/zen/go` (Anthropic-style) and `https://opencode.ai/zen/go/v1` (OpenAI-style)      |
+| Usage endpoint | `GET https://opencode.ai/zen/go/v1/usage`                                                              |
+| Auth           | `Authorization: Bearer <oc_sk_…>` (an **API key**, not the OAuth `st_` token)                          |
+| CORS           | server sends `access-control-allow-origin: *`                                                          |
+| Cache          | `cache-control: no-store`                                                                              |
 
 Confirmed live response:
 
 ```json
 {
   "usage": {
-    "rolling": { "status": "ok", "percent": 0,  "resetsAt": "2026-10-06T13:39:32.000Z" },
-    "weekly":  { "status": "ok", "percent": 20, "resetsAt": "2026-10-12T00:00:00.000Z" },
-    "monthly": { "status": "ok", "percent": 57, "resetsAt": "2026-10-25T14:02:02.000Z" }
+    "rolling": {
+      "status": "ok",
+      "percent": 0,
+      "resetsAt": "2026-10-06T13:39:32.000Z"
+    },
+    "weekly": {
+      "status": "ok",
+      "percent": 20,
+      "resetsAt": "2026-10-12T00:00:00.000Z"
+    },
+    "monthly": {
+      "status": "ok",
+      "percent": 57,
+      "resetsAt": "2026-10-25T14:02:02.000Z"
+    }
   }
 }
 ```
@@ -66,17 +78,17 @@ Where the API key comes from on this machine:
 - `~/.pi/agent/auth.json` → `{"opencode-go":{"type":"api_key","key":"oc_sk_…"}}`
 - The key can also be supplied via `OPENCODE_API_KEY`.
 - The OAuth credential stored by the opencode CLI in
-  `~/.local/share/opencode/opencode.db` (`credential.value`, `st_…`/`rt_…`)
-  is **rejected** by the usage endpoint (tested: HTTP 401). So the widget must
-  use an `oc_sk_…` console API key.
+  `~/.local/share/opencode/opencode.db` (`credential.value`, `st_…`/`rt_…`) is
+  **rejected** by the usage endpoint (tested: HTTP 401). So the widget must use
+  an `oc_sk_…` console API key.
 
 ---
 
 ## 3. Why Go + QML, not "all Go"
 
 - Plasma 6 applets are QML packages (`metadata.json` + `contents/ui/*.qml`)
-  executed inside `plasmashell`. There is no supported way to register a Go
-  type into that QML engine without a C++ plugin.
+  executed inside `plasmashell`. There is no supported way to register a Go type
+  into that QML engine without a C++ plugin.
 - Qt bindings for Go (`miqt`, `therecipe/qt`) can build a standalone Qt
   window/tray app, but not an embeddable panel widget.
 - Therefore: **Go owns the logic and data; QML owns the pixels.**
@@ -110,6 +122,7 @@ Where the API key comes from on this machine:
 ```
 
 Transport choice: **loopback HTTP**.
+
 - Easy to debug (`curl`), no extra QML/DBus plumbing, CORS already permissive.
 - Bind to `127.0.0.1` only. The endpoint exposes only percentages/countdowns,
   never the API key.
@@ -174,9 +187,8 @@ go-pane install [--plasmoid] [--systemd]   # copy binary/unit, kpackagetool6 -i
 go-pane version
 ```
 
-`once --json` is important: it makes the binary usable as a
-`plasma5support` "executable" data source and keeps the daemon optional for an
-MVP.
+`once --json` is important: it makes the binary usable as a `plasma5support`
+"executable" data source and keeps the daemon optional for an MVP.
 
 ### 6.2 Configuration & key discovery (first match wins)
 
@@ -184,10 +196,11 @@ MVP.
 2. `OPENCODE_API_KEY` / `OPENCODE_GO_API_KEY` env
 3. `~/.config/go-pane/config.json` → `{"apiKeyFile": "…", "apiKey": "…"}`
 4. `~/.config/go-pane/api_key` (file, must be `0600`)
-5. `~/.pi/agent/auth.json` → `opencode-go.key`  ← works on this machine
+5. `~/.pi/agent/auth.json` → `opencode-go.key` ← works on this machine
 6. error with actionable instructions (`go-pane doctor`)
 
 Notes:
+
 - Never log the key; redact in errors.
 - Warn (once) if the key file is group/world-readable.
 - Do **not** try the opencode CLI OAuth token — it 401s on this endpoint.
@@ -198,9 +211,10 @@ thresholds, monthly window override, whether to include free/zero-cost models.
 ### 6.3 API client (`internal/opencode`)
 
 - `Client{http.Client, baseURL, apiKey}` with `FetchUsage(ctx) (Usage, error)`.
-- Request: `GET {base}/zen/go/v1/usage`, `Authorization: Bearer`, `Accept: application/json`.
-- 10s timeout; retry on 429/5xx/network with jittered exponential backoff
-  (max ~4 attempts); honor `Retry-After` if present.
+- Request: `GET {base}/zen/go/v1/usage`, `Authorization: Bearer`,
+  `Accept: application/json`.
+- 10s timeout; retry on 429/5xx/network with jittered exponential backoff (max
+  ~4 attempts); honor `Retry-After` if present.
 - Typed errors: `ErrUnauthorized`, `ErrRateLimited`, `ErrServer`, `ErrNetwork`
   so the UI can render distinct states.
 - Parse `resetsAt` with `time.RFC3339` (Go accepts the `.000` fraction).
@@ -215,8 +229,10 @@ thresholds, monthly window override, whether to include free/zero-cost models.
 
 ### 6.5 Metrics engine (`internal/metrics`)
 
-See §8 for formulas. Pure functions over `(now, usage, learnedWindowLen,
-previousSample)` → `Snapshot`. Fully unit-testable with an injected clock.
+See §8 for formulas. Pure functions over
+`(now, usage, learnedWindowLen,
+previousSample)` → `Snapshot`. Fully
+unit-testable with an injected clock.
 
 ### 6.6 HTTP API (`internal/server`)
 
@@ -250,7 +266,7 @@ previousSample)` → `Snapshot`. Fully unit-testable with an injected clock.
       "safeRatePerHour": 20.0,
       "budgetPerHour": 20.0
     },
-    "weekly":  { "...": "..." },
+    "weekly": { "...": "..." },
     "monthly": { "...": "..." }
   }
 }
@@ -258,14 +274,14 @@ previousSample)` → `Snapshot`. Fully unit-testable with an injected clock.
 
 ### 6.7 History store (`internal/history`)
 
-- Append-only JSONL at `$XDG_STATE_HOME/go-pane/history.jsonl`
-  (default `~/.local/state/go-pane/history.jsonl`).
+- Append-only JSONL at `$XDG_STATE_HOME/go-pane/history.jsonl` (default
+  `~/.local/state/go-pane/history.jsonl`).
 - One line per successful poll: `{ts, rolling, weekly, monthly, resetsAt…}`.
 - Rotate/trim to a retention window (e.g. 60 days) on startup.
 - Uses: sparklines, `deltaSinceLast`, and **learning the true window length**:
   when `resetsAt` changes, `windowLen = newResetsAt - oldResetsAt`; persist it
-  per window. First run falls back to defaults (rolling 5h, weekly 7d,
-  monthly 30d) and marks derived pace as "estimated".
+  per window. First run falls back to defaults (rolling 5h, weekly 7d, monthly
+  30d) and marks derived pace as "estimated".
 - No SQLite needed. If richer queries are ever required, switch to
   `modernc.org/sqlite` (pure Go, no cgo).
 
@@ -289,9 +305,9 @@ Environment=GO_PANE_LOG_LEVEL=info
 WantedBy=default.target
 ```
 
-`systemctl --user enable --now go-pane.service`. The plasmoid may offer a
-"Start daemon" button that runs the same command through the executable data
-engine if the socket is unreachable.
+`systemctl --user enable --now go-pane.service`. The plasmoid may offer a "Start
+daemon" button that runs the same command through the executable data engine if
+the socket is unreachable.
 
 ---
 
@@ -327,10 +343,10 @@ engine if the socket is unreachable.
   - `Timer` + `XMLHttpRequest` GET `http://127.0.0.1:17873/v1/usage`.
   - `Plasmoid.status` / `Plasmoid.busy` reflect `stale`/`error`.
   - `Plasmoid.toolTipMainText`/`toolTipSubText` for the panel tooltip.
-- `UsageRow.qml` — reusable per-window row: label, progress bar, `% left`,
-  reset countdown, pace badge, optional sparkline.
-- `ConfigGeneral.qml` — daemon URL/port, refresh interval, thresholds,
-  which windows to show, compact mode, "start daemon" button.
+- `UsageRow.qml` — reusable per-window row: label, progress bar, `% left`, reset
+  countdown, pace badge, optional sparkline.
+- `ConfigGeneral.qml` — daemon URL/port, refresh interval, thresholds, which
+  windows to show, compact mode, "start daemon" button.
 
 ### 7.3 Representations
 
@@ -351,8 +367,10 @@ Header shows last update + a refresh button; stale/error states get a banner.
 ### 7.4 Config (`contents/config/main.xml`)
 
 `String daemonUrl` (`http://127.0.0.1:17873`), `Int refreshSeconds` (60),
-`Int warnPercent` (70), `Int criticalPercent` (90), `Bool showRolling/Weekly/
-Monthly`, `String compactMode` (`constrained`|`monthly`|`rolling`), `Bool
+`Int warnPercent` (70), `Int criticalPercent` (90),
+`Bool showRolling/Weekly/
+Monthly`, `String compactMode`
+(`constrained`|`monthly`|`rolling`), `Bool
 notifyOnThreshold`.
 
 The API key is **not** stored in KConfig — it lives only in the Go config file
@@ -365,22 +383,22 @@ value) via the daemon's `/v1/usage` metadata.
 
 Per window:
 
-| Metric | Formula | Display |
-|---|---|---|
-| used | `percent` | `57% used` |
-| available | `100 - percent` | `43% left` |
-| resets in | `resetsAt - now` | `19d 5h`, `4h 59m` |
-| window | learned, else default (5h / 7d / 30d) | tooltip |
-| elapsed % | `clamp((now - (resetsAt - window)) / window * 100)` | tooltip |
-| pace ratio | `(used/100) / (elapsed/100)` | `0.95× pace` |
-| projection | `(used/100) / elapsedFrac * 100` | `projected 71% at reset` |
-| exhaust ETA | `now + elapsed * (1 - usedFrac) / usedFrac` | `empty in ~2h 10m` (only if `< resetsAt`) |
-| safe rate | `available / remainingHours` | `1.8%/h` |
-| budget rate | `100 / windowHours` | tooltip |
-| status color | green `<warn`, amber `≥warn`, red `≥critical` | bar + badge |
+| Metric       | Formula                                             | Display                                   |
+| ------------ | --------------------------------------------------- | ----------------------------------------- |
+| used         | `percent`                                           | `57% used`                                |
+| available    | `100 - percent`                                     | `43% left`                                |
+| resets in    | `resetsAt - now`                                    | `19d 5h`, `4h 59m`                        |
+| window       | learned, else default (5h / 7d / 30d)               | tooltip                                   |
+| elapsed %    | `clamp((now - (resetsAt - window)) / window * 100)` | tooltip                                   |
+| pace ratio   | `(used/100) / (elapsed/100)`                        | `0.95× pace`                              |
+| projection   | `(used/100) / elapsedFrac * 100`                    | `projected 71% at reset`                  |
+| exhaust ETA  | `now + elapsed * (1 - usedFrac) / usedFrac`         | `empty in ~2h 10m` (only if `< resetsAt`) |
+| safe rate    | `available / remainingHours`                        | `1.8%/h`                                  |
+| budget rate  | `100 / windowHours`                                 | tooltip                                   |
+| status color | green `<warn`, amber `≥warn`, red `≥critical`       | bar + badge                               |
 
-Edge cases: `elapsedFrac == 0` → pace undefined ("just reset"); `used == 0` →
-no ETA; `status != ok` → override color/text; stale snapshot → grey + age.
+Edge cases: `elapsedFrac == 0` → pace undefined ("just reset"); `used == 0` → no
+ETA; `status != ok` → override color/text; stale snapshot → grey + age.
 
 **Headline selection:** the window with the highest `projectedUsedPercent`
 (tie-break highest `used`). Configurable.
@@ -412,9 +430,10 @@ Optional dev packages for QML validation: `qt6-qtdeclarative-devel` (provides
 
 ## 10. Phased roadmap
 
-- **Phase 0 — validate** ✅ done: endpoint, auth, schema, window cadence, tooling.
-- **Phase 1 — Go core (no UI):** client + metrics + `go-pane once --json`,
-  unit tests, golden file. Exit: correct JSON on this machine.
+- **Phase 0 — validate** ✅ done: endpoint, auth, schema, window cadence,
+  tooling.
+- **Phase 1 — Go core (no UI):** client + metrics + `go-pane once --json`, unit
+  tests, golden file. Exit: correct JSON on this machine.
 - **Phase 2 — daemon:** poller, cache/backoff, HTTP API, config/key discovery,
   history + window-length learning, systemd unit. Exit: `curl` shows live,
   resilient data.
@@ -432,10 +451,11 @@ Optional dev packages for QML validation: `qt6-qtdeclarative-devel` (provides
 ## 11. Testing
 
 - **Go unit:** metrics with a fixed clock (pace, projection, ETA, window
-  learning, DST/UTC); client via `httptest` (401/429/5xx/backoff); key
-  discovery precedence; history rotation.
+  learning, DST/UTC); client via `httptest` (401/429/5xx/backoff); key discovery
+  precedence; history rotation.
 - **Golden:** `testdata/usage.sample.json` → expected snapshot JSON.
-- **Integration:** run daemon on an ephemeral port, hit `/v1/usage` + `/healthz`.
+- **Integration:** run daemon on an ephemeral port, hit `/v1/usage` +
+  `/healthz`.
 - **Manual QML:** `make dev` (`plasmawindowed`), then add to a panel; verify
   compact/full, tooltip, config apply, daemon-down state.
 - **CI:** `go test ./...`, `go vet ./...`, `gofmt -l`; run `qmllint` if the
@@ -445,15 +465,15 @@ Optional dev packages for QML validation: `qt6-qtdeclarative-devel` (provides
 
 ## 12. Risks, assumptions & decisions to confirm
 
-1. **Unofficial endpoint.** `/zen/go/v1/usage` is undocumented and may change
-   or rate-limit. Mitigate: isolate in `internal/opencode`, make it
-   configurable, degrade gracefully, pin behavior tests.
+1. **Unofficial endpoint.** `/zen/go/v1/usage` is undocumented and may change or
+   rate-limit. Mitigate: isolate in `internal/opencode`, make it configurable,
+   degrade gracefully, pin behavior tests.
 2. **Window lengths are inferred.** `rolling` ≈ 5h and `weekly` = Mon 00:00 UTC
    are observations; `monthly` is an anniversary. Learning from history is the
    safe approach; defaults are documented as estimates.
 3. **Key type.** Only `oc_sk_…` works; OAuth `st_…` does not. Document clearly.
-4. **Naming/module path** (`go-pane` vs `github.com/<you>/go-pane`) and
-   plasmoid id (`io.github.<you>.go-pane`) need your input.
+4. **Naming/module path** (`go-pane` vs `github.com/<you>/go-pane`) and plasmoid
+   id (`io.github.<you>.go-pane`) need your input.
 5. **Daemon lifecycle:** systemd unit vs plasmoid-managed process. Recommend
    systemd; keep one-shot fallback.
 6. **Multiple panels/instances:** one shared daemon serves all applets.
@@ -463,23 +483,23 @@ Optional dev packages for QML validation: `qt6-qtdeclarative-devel` (provides
 
 ## 13. Alternatives considered
 
-| Option | Verdict |
-|---|---|
-| Pure Go Qt app (`miqt`/`therecipe`) | Not an embeddable plasmoid; standalone window/tray only. |
-| DBus daemon + QML `DBusInterface` | More native, more code/glue; HTTP is easier to debug. |
-| `plasma5support` `executable` engine only (no daemon) | Simple MVP, but re-spawns per poll, no history/cache. Keep as fallback. |
-| QML calls the API directly | Works (CORS `*`) but leaks the key into KConfig, no history/math in Go. Rejected. |
-| State file + `file://` XHR | No live push; atomic-write hazards. Rejected as primary. |
+| Option                                                | Verdict                                                                           |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Pure Go Qt app (`miqt`/`therecipe`)                   | Not an embeddable plasmoid; standalone window/tray only.                          |
+| DBus daemon + QML `DBusInterface`                     | More native, more code/glue; HTTP is easier to debug.                             |
+| `plasma5support` `executable` engine only (no daemon) | Simple MVP, but re-spawns per poll, no history/cache. Keep as fallback.           |
+| QML calls the API directly                            | Works (CORS `*`) but leaks the key into KConfig, no history/math in Go. Rejected. |
+| State file + `file://` XHR                            | No live push; atomic-write hazards. Rejected as primary.                          |
 
 ---
 
 ## 14. Security note
 
 The API key is a bearer credential. The daemon must keep it out of logs, out of
-the HTTP responses, and out of KConfig; the key file should be `0600`. Also
-note that pi stores it in `~/.pi/agent/auth.json` and it has appeared in pi
-session transcripts — if any key was echoed during development, **rotate it**
-in the OpenCode console.
+the HTTP responses, and out of KConfig; the key file should be `0600`. Also note
+that pi stores it in `~/.pi/agent/auth.json` and it has appeared in pi session
+transcripts — if any key was echoed during development, **rotate it** in the
+OpenCode console.
 
 ---
 
@@ -505,11 +525,11 @@ Implemented:
 
 Deviations from the plan:
 
-- `server.Provider.History` takes only `limit` (the window filter happens in
-  the client, since a sample already contains every window).
+- `server.Provider.History` takes only `limit` (the window filter happens in the
+  client, since a sample already contains every window).
 - One-shot mode also records a history sample so it can learn window lengths
   when used without the daemon.
 - No SSE endpoint yet; the applet polls, which is sufficient at 60s.
 
-Next (phase 4+): config-page polish, sparklines, threshold notifications,
-GitHub CI, KDE Store packaging.
+Next (phase 4+): config-page polish, sparklines, threshold notifications, GitHub
+CI, KDE Store packaging.

@@ -6,6 +6,12 @@
 [![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-blue)](https://kde.org/plasma-desktop/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/4ster-light/go-pane)](https://github.com/4ster-light/go-pane/commits/main)
 
+> [!NOTE]
+> This project is primarily for personal use, hence the specific target
+> environment. However, codebase quality is also a main goal and it should work
+> in any compatible environment (Plasma 6 KDE) and contributions of any kind
+> (issues, feature requests, etc) are very much welcome.
+
 A native KDE Plasma 6 widget that shows live **OpenCode Go** subscription usage
 (rolling / weekly / monthly) with reset countdowns and derived pacing metrics.
 
@@ -34,7 +40,7 @@ OpenCode Go API ──> go-pane daemon (HTTP) ──> Plasma applet (QML)
 - KDE Plasma 6 (`plasma5support`, `kpackagetool6`)
 - Go 1.23+ (to build)
 - An OpenCode **API key** (`oc_sk_…`). The OAuth token used by the opencode CLI
-  is *not* accepted by the usage endpoint.
+  is _not_ accepted by the usage endpoint.
 
 ## Build & install
 
@@ -46,7 +52,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now go-pane.service
 ```
 
-Then right-click your panel → *Add Widgets…* → **OpenCode Go Usage**.
+Then right-click your panel → _Add Widgets…_ → **OpenCode Go Usage**.
 
 For iterating on the plasmoid:
 
