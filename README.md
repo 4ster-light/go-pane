@@ -43,37 +43,53 @@ OpenCode Go API ──> go-pane daemon (HTTP) ──> Plasma applet (QML)
 - An OpenCode **API key** (`oc_sk_…`). The OAuth token used by the opencode CLI
   is _not_ accepted by the usage endpoint.
 
-## Build & install
+## Install
+
+The project has two parts: a Go daemon/CLI and a Plasma applet. You can install
+both with the Makefile, or each one on its own.
+
+### Everything with the Makefile
 
 ```sh
-make build          # -> bin/go-pane
-make test
-make install        # binary -> ~/.local/bin, unit -> ~/.config/systemd/user, plasmoid
+git clone https://github.com/4ster-light/go-pane.git
+cd go-pane
+make install
 systemctl --user daemon-reload
 systemctl --user enable --now go-pane.service
 ```
 
-Then right-click your panel → _Add Widgets…_ → **OpenCode Go Usage**.
+`make install` puts the binary in `~/.local/bin`, the unit in
+`~/.config/systemd/user`, and installs the applet.
+
+### Daemon and CLI only
+
+With the Go toolchain, no clone needed:
+
+```sh
+go install github.com/4ster-light/go-pane/cmd/go-pane@latest
+```
+
+This puts `go-pane` in `$(go env GOPATH)/bin` (usually `~/go/bin`), so make sure
+that directory is on your `PATH`.
+
+### Plasma applet only
+
+From a git clone or an unpacked release tarball:
+
+```sh
+kpackagetool6 -t Plasma/Applet -i packaging/io.github.4ster-light.go-pane
+```
+
+Then right-click the panel, choose **Add Widgets…**, and add **OpenCode Go
+Usage**.
+
+### Development
 
 For iterating on the plasmoid:
 
 ```sh
 make dev            # kpackagetool6 -u + plasmawindowed
 ```
-
-### Install the daemon only
-
-The KDE applet is installed separately, but if you only want the daemon and CLI
-you can install them straight from the module:
-
-```sh
-go install github.com/4ster-light/go-pane/cmd/go-pane@latest
-```
-
-This builds from source and installs `go-pane` into `$(go env GOPATH)/bin`
-(usually `~/go/bin`); make sure that directory is on your `PATH`. The applet
-still has to be installed with
-`kpackagetool6 -t Plasma/Applet -i packaging/io.github.4ster-light.go-pane`.
 
 ## API key discovery
 
