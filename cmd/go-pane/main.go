@@ -25,30 +25,38 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run dispatches a subcommand and returns the process exit code. Keeping it
+// separate from main makes the command surface testable in-process.
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		usage(stderr)
+		return 2
 	}
-	switch os.Args[1] {
+	switch args[0] {
 	case "serve":
-		os.Exit(runServe(os.Args[2:]))
+		return runServe(args[1:])
 	case "once", "json":
-		os.Exit(runOnce(os.Args[1] == "json", os.Args[2:]))
+		return runOnce(stdout, stderr, args[0] == "json", args[1:])
 	case "doctor":
-		os.Exit(runDoctor(os.Args[2:]))
+		return runDoctor(stdout, stderr, args[1:])
 	case "version", "--version", "-v":
-		fmt.Printf("go-pane %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
+		_, _ = fmt.Fprintf(stdout, "go-pane %s (commit %s, built %s)\n", version.Version, version.Commit, version.Date)
+		return 0
 	case "help", "--help", "-h":
-		usage()
+		usage(stdout)
+		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", os.Args[1])
-		usage()
-		os.Exit(2)
+		_, _ = fmt.Fprintf(stderr, "unknown command %q\n\n", args[0])
+		usage(stderr)
+		return 2
 	}
 }
 
-func usage() {
-	fmt.Fprint(os.Stderr, `go-pane — OpenCode Go usage for the KDE Plasma widget
+func usage(w io.Writer) {
+	_, _ = fmt.Fprint(w, `go-pane — OpenCode Go usage for the KDE Plasma widget
 
 Usage:
   go-pane serve   [--addr 127.0.0.1:17873] [--interval 60s] [--base-url URL] [--api-key-file PATH] [--log-level info]
@@ -106,7 +114,7 @@ func runServe(args []string) int {
 	return 0
 }
 
-func runOnce(asJSON bool, args []string) int {
+func runOnce(stdout, stderr io.Writer, asJSON bool, args []string) int {
 	fs := flag.NewFlagSet("once", flag.ExitOnError)
 	jsonFlag := fs.Bool("json", asJSON, "print JSON instead of text")
 	baseURL := fs.String("base-url", "", "API base URL")
@@ -115,7 +123,7 @@ func runOnce(asJSON bool, args []string) int {
 
 	cfg, err := config.Load(config.Options{BaseURL: *baseURL, KeyFile: *keyFile})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "configuration error:", err)
+		_, _ = fmt.Fprintln(stderr, "configuration error:", err)
 		return 1
 	}
 	client := opencode.New(cfg.APIKey)
@@ -125,7 +133,7 @@ func runOnce(asJSON bool, args []string) int {
 	defer cancel()
 	usage, err := fetchWithRetry(ctx, client, 3)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "usage request failed:", err)
+		_, _ = fmt.Fprintln(stderr, "usage request failed:", err)
 		return 1
 	}
 
@@ -141,19 +149,19 @@ func runOnce(asJSON bool, args []string) int {
 	snap := metrics.Compute(now, usage, lengths)
 
 	if *jsonFlag {
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(snap); err != nil {
-			fmt.Fprintln(os.Stderr, "encode:", err)
+			_, _ = fmt.Fprintln(stderr, "encode:", err)
 			return 1
 		}
 		return 0
 	}
-	printText(os.Stdout, snap)
+	printText(stdout, snap)
 	return 0
 }
 
-func runDoctor(args []string) int {
+func runDoctor(stdout, stderr io.Writer, args []string) int {
 	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
 	baseURL := fs.String("base-url", "", "API base URL")
 	keyFile := fs.String("api-key-file", "", "file containing the API key")
@@ -161,12 +169,12 @@ func runDoctor(args []string) int {
 
 	cfg, err := config.Load(config.Options{BaseURL: *baseURL, KeyFile: *keyFile})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "configuration error:", err)
+		_, _ = fmt.Fprintln(stderr, "configuration error:", err)
 		return 1
 	}
-	fmt.Printf("API key source: %s\n", cfg.APIKeySource)
-	fmt.Printf("API base URL:   %s\n", cfg.BaseURL)
-	fmt.Printf("State dir:      %s\n", cfg.StateDir)
+	_, _ = fmt.Fprintf(stdout, "API key source: %s\n", cfg.APIKeySource)
+	_, _ = fmt.Fprintf(stdout, "API base URL:   %s\n", cfg.BaseURL)
+	_, _ = fmt.Fprintf(stdout, "State dir:      %s\n", cfg.StateDir)
 
 	client := opencode.New(cfg.APIKey)
 	client.BaseURL = cfg.BaseURL
@@ -174,12 +182,12 @@ func runDoctor(args []string) int {
 	defer cancel()
 	usage, err := client.FetchUsage(ctx)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "usage request failed:", err)
+		_, _ = fmt.Fprintln(stderr, "usage request failed:", err)
 		return 1
 	}
 	for _, k := range metrics.Order {
 		w := metrics.WindowFor(k, usage)
-		fmt.Printf("%-8s %3.0f%% used, resets %s\n", k.Title(), w.Percent, w.ResetsAt.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(stdout, "%-8s %3.0f%% used, resets %s\n", k.Title(), w.Percent, w.ResetsAt.Format(time.RFC3339))
 	}
 	return 0
 }
