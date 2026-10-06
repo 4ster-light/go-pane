@@ -37,6 +37,7 @@ type usageEnvelope struct {
 // ErrorKind classifies API failures so callers can react appropriately.
 type ErrorKind int
 
+// Error kinds reported by the client.
 const (
 	KindUnknown ErrorKind = iota
 	KindNetwork
@@ -76,10 +77,16 @@ func (e *Error) Error() string {
 	if msg == "" && e.Err != nil {
 		msg = e.Err.Error()
 	}
-	if e.StatusCode != 0 {
+	switch {
+	case e.StatusCode != 0 && msg != "":
 		return fmt.Sprintf("opencode %s error (HTTP %d): %s", e.Kind, e.StatusCode, msg)
+	case e.StatusCode != 0:
+		return fmt.Sprintf("opencode %s error (HTTP %d)", e.Kind, e.StatusCode)
+	case msg != "":
+		return fmt.Sprintf("opencode %s error: %s", e.Kind, msg)
+	default:
+		return fmt.Sprintf("opencode %s error", e.Kind)
 	}
-	return fmt.Sprintf("opencode %s error: %s", e.Kind, msg)
 }
 
 func (e *Error) Unwrap() error { return e.Err }
@@ -171,8 +178,8 @@ func serverMessage(body []byte) string {
 		return e.Error.Message
 	}
 	s := strings.TrimSpace(string(body))
-	if len(s) > 200 {
-		s = s[:200]
+	if r := []rune(s); len(r) > 200 {
+		s = string(r[:200])
 	}
 	return s
 }
