@@ -1,6 +1,7 @@
 # go-pane
 
 [![CI](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml/badge.svg)](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/4ster-light/go-pane)](https://github.com/4ster-light/go-pane/releases/latest)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/4ster-light/go-pane)](go.mod)
 [![License: MIT](https://img.shields.io/github/license/4ster-light/go-pane)](LICENSE)
 [![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-blue)](https://kde.org/plasma-desktop/)
