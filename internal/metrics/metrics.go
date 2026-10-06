@@ -12,6 +12,7 @@ import (
 // Kind identifies a usage window.
 type Kind string
 
+// Window kinds.
 const (
 	Rolling Kind = "rolling"
 	Weekly  Kind = "weekly"
@@ -105,7 +106,7 @@ func Compute(now time.Time, u opencode.Usage, lengths Lengths) Snapshot {
 		if lenDur <= 0 {
 			lenDur = defaults[k]
 		}
-		m := computeWindow(now, k, windowFor(k, u), lenDur)
+		m := computeWindow(now, k, WindowFor(k, u), lenDur)
 		m.WindowEstimated = lengths.Estimated[k]
 		snap.Windows[string(k)] = m
 	}
@@ -113,7 +114,8 @@ func Compute(now time.Time, u opencode.Usage, lengths Lengths) Snapshot {
 	return snap
 }
 
-func windowFor(k Kind, u opencode.Usage) opencode.Window {
+// WindowFor returns the raw API window for a kind.
+func WindowFor(k Kind, u opencode.Usage) opencode.Window {
 	switch k {
 	case Rolling:
 		return u.Rolling
