@@ -1,0 +1,85 @@
+// Package server exposes the daemon state over loopback HTTP.
+package server
+
+import (
+	"encoding/json"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/4ster-light/go-pane/internal/history"
+	"github.com/4ster-light/go-pane/internal/metrics"
+)
+
+// Provider is the data source the server renders.
+type Provider interface {
+	Snapshot() metrics.Snapshot
+	History(limit int) []history.Sample
+}
+
+// New builds the HTTP server.
+func New(addr string, p Provider) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte("ok\n"))
+	})
+	mux.HandleFunc("/v1/usage", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, p.Snapshot())
+	})
+	mux.HandleFunc("/v1/history", func(w http.ResponseWriter, r *http.Request) {
+		limit := 288
+		if v := r.URL.Query().Get("limit"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 5000 {
+				limit = n
+			}
+		}
+		writeJSON(w, map[string]any{
+			"window":  r.URL.Query().Get("window"),
+			"samples": p.History(limit),
+		})
+	})
+	return &http.Server{
+		Addr:              addr,
+		Handler:           cors(loopbackOnly(mux)),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+}
+
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Cache-Control", "no-store")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func loopbackOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		ip := net.ParseIP(host)
+		if ip == nil || !ip.IsLoopback() {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(v)
+}

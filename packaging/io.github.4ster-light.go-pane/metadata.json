@@ -1,0 +1,18 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Id": "io.github.4ster-light.go-pane",
+    "Name": "OpenCode Go Usage",
+    "Description": "Live OpenCode Go rolling, weekly and monthly usage with reset countdowns and pacing",
+    "Icon": "office-chart-line",
+    "Category": "System Information",
+    "Version": "0.1.0",
+    "License": "MIT",
+    "Authors": [
+      { "Name": "4ster-light", "Email": "" }
+    ],
+    "Website": "https://github.com/4ster-light/go-pane",
+    "BugReportUrl": "https://github.com/4ster-light/go-pane/issues"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

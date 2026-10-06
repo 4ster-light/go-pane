@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="daemonUrl" type="String">
+      <label>Base URL of the go-pane daemon.</label>
+      <default>http://127.0.0.1:17873</default>
+    </entry>
+    <entry name="refreshSeconds" type="Int">
+      <label>How often to refresh the usage data, in seconds.</label>
+      <default>60</default>
+      <min>5</min>
+      <max>3600</max>
+    </entry>
+    <entry name="warnPercent" type="Int">
+      <label>Used percentage at which the warning colour is shown.</label>
+      <default>70</default>
+      <min>1</min>
+      <max>100</max>
+    </entry>
+    <entry name="criticalPercent" type="Int">
+      <label>Used percentage at which the critical colour is shown.</label>
+      <default>90</default>
+      <min>1</min>
+      <max>100</max>
+    </entry>
+    <entry name="showRolling" type="Bool">
+      <label>Show the rolling (5 hour) window.</label>
+      <default>true</default>
+    </entry>
+    <entry name="showWeekly" type="Bool">
+      <label>Show the weekly window.</label>
+      <default>true</default>
+    </entry>
+    <entry name="showMonthly" type="Bool">
+      <label>Show the monthly window.</label>
+      <default>true</default>
+    </entry>
+    <entry name="compactMode" type="String">
+      <label>Which window the compact (panel) representation highlights.</label>
+      <default>constrained</default>
+    </entry>
+  </group>
+</kcfg>
