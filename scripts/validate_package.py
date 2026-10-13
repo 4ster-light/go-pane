@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """Static checks for the go-pane Plasma applet package.
 
 This deliberately avoids a Qt/KDE toolchain so it can run anywhere:
@@ -39,7 +40,8 @@ def check_layout() -> None:
             fail(f"missing required file: {path.relative_to(REPO_ROOT)}")
 
 
-def check_metadata() -> dict:
+def check_metadata() -> dict[str, object]:
+    data: dict[str, object] = {}
     try:
         data = json.loads(METADATA.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -53,10 +55,10 @@ def check_metadata() -> dict:
         fail("metadata.json: missing KPlugin object")
 
     for field in ("Id", "Name", "Version", "License"):
-        if not plugin.get(field):
+        if not plugin.get(field):  # ty: ignore[unresolved-attribute]
             fail(f"metadata.json: KPlugin.{field} is required")
 
-    version = plugin["Version"]
+    version = plugin["Version"]  # ty: ignore[not-subscriptable]
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         fail(f"metadata.json: Version {version!r} is not MAJOR.MINOR.PATCH")
 
@@ -69,9 +71,9 @@ def check_config_xml() -> set[str]:
     except ET.ParseError as exc:
         fail(f"main.xml is not valid XML: {exc}")
 
-    entries = set()
+    entries: set[str] = set()
     for entry in tree.getroot().iter(f"{KCFG_NS}entry"):
-        name = entry.get("name")
+        name: str = entry.get("name")  # ty: ignore[invalid-assignment]
         if not name:
             fail("main.xml: <entry> without a name")
         entries.add(name)
@@ -103,7 +105,7 @@ def check_qml_config_refs(entries: set[str]) -> None:
 
 def main() -> None:
     check_layout()
-    check_metadata()
+    _ = check_metadata()
     entries = check_config_xml()
     check_qml_config_refs(entries)
     print(f"ok: {PACKAGE_DIR.relative_to(REPO_ROOT)} is a valid Plasma applet package")
