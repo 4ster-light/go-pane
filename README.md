@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml/badge.svg)](https://github.com/4ster-light/go-pane/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/4ster-light/go-pane)](https://github.com/4ster-light/go-pane/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/4ster-light/go-pane)](LICENSE)
-[![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6-blue)](https://kde.org/plasma-desktop/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-red)](LICENSE)
+[![Qt](https://img.shields.io/badge/Qt-2CDE85?logo=Qt&logoColor=fff)](#)
+[![KDE Plasma](https://img.shields.io/badge/KDE%20Plasma-1D99F3?logo=kdeplasma&logoColor=fff)](#)
 
-> [!NOTE]
+> [!IMPORTANT]
 > This project is primarily for personal use, hence the specific target
 > environment. However, codebase quality is also a main goal and it should work
 > in any compatible environment (Plasma 6 KDE) and contributions of any kind
@@ -20,7 +21,7 @@ directly, derives every metric in JavaScript, and discovers the API key from the
 same places the old daemon used (plus a manual override). Key discovery was
 restored in **v0.2.1**.
 
-```
+```txt
 OpenCode Go API ──> Plasma applet (single main.qml + KConfig)
 ```
 
@@ -83,14 +84,14 @@ make plasmoid-upgrade
 Open the widget's popup and click the gear (⚙). Settings are saved in the
 widget's Plasma configuration (a `0600` file):
 
-| Setting         | Default                          | Description                                     |
-| --------------- | -------------------------------- | ----------------------------------------------- |
-| API key         | *(empty)*                        | Optional override; empty means auto-detect.     |
-| API base URL    | `https://opencode.ai/zen/go/v1`  | Change if the endpoint moves.                   |
-| Refresh (s)     | `60`                             | Poll interval, 5–3600 seconds.                  |
-| Warn / critical | `70` / `90`                      | Used-% thresholds for amber / red.              |
-| Show            | rolling, weekly, monthly         | Which rows appear in the popup.                 |
-| Panel headline  | most constrained                 | Which window the panel emphasises.              |
+| Setting         | Default                         | Description                                 |
+|-----------------|---------------------------------|---------------------------------------------|
+| API key         | _(empty)_                       | Optional override; empty means auto-detect. |
+| API base URL    | `https://opencode.ai/zen/go/v1` | Change if the endpoint moves.               |
+| Refresh (s)     | `60`                            | Poll interval, 5–3600 seconds.              |
+| Warn / critical | `70` / `90`                     | Used-% thresholds for amber / red.          |
+| Show            | rolling, weekly, monthly        | Which rows appear in the popup.             |
+| Panel headline  | most constrained                | Which window the panel emphasises.          |
 
 ## API key discovery
 
@@ -132,7 +133,7 @@ make check      # static package validation (metadata, KConfigXT, QML refs)
 make package    # build dist/go-pane-<version>.plasmoid
 ```
 
-There is no prebuilt binary or test suite: the widget *is* the single
+There is no prebuilt binary or test suite: the widget _is_ the single
 `contents/ui/main.qml`. Optional dev packages for validation: `qmllint` (from
 `qt6-qtdeclarative-devel` on Fedora).
 
